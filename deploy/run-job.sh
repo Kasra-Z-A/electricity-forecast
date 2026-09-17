@@ -38,6 +38,7 @@ if ! docker image inspect "$POWER_IMAGE" >/dev/null 2>&1; then
   aws ecr get-login-password --region "$AWS_DEFAULT_REGION" |
     docker login --username AWS --password-stdin "$POWER_REGISTRY"
   docker pull "$POWER_IMAGE"
+  docker logout "$POWER_REGISTRY" >/dev/null
 fi
 docker compose -f deploy/compose.server.yaml run --rm batch job "$job" || status=$?
 # Export fresh status even when the preceding operation failed.

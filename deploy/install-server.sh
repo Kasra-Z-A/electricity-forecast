@@ -26,6 +26,8 @@ CONFIG
 aws ecr get-login-password --region eu-central-1 |
   docker login --username AWS --password-stdin "$registry"
 docker pull "$image"
+# The token is short-lived, but it should not sit in root's config on disk.
+docker logout "$registry" >/dev/null
 install -m 644 deploy/systemd/*.timer /etc/systemd/system/
 cat > /etc/systemd/system/power-forecast@.service <<'SERVICE'
 [Unit]
