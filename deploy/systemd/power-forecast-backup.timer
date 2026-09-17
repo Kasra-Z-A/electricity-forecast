@@ -1,0 +1,8 @@
+[Unit]
+Description=Back up the forecast archive
+[Timer]
+OnCalendar=*-*-* 21:10:00 Europe/Vienna
+Persistent=true
+Unit=power-forecast@backup.service
+[Install]
+WantedBy=timers.target

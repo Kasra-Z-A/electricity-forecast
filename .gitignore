@@ -1,0 +1,28 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.pytest_cache/
+
+# Secrets
+.env
+
+# Downloaded and derived data (rebuildable from the ingestion flows)
+data/*
+!data/.gitkeep
+
+# MLflow local tracking
+mlruns/
+mlartifacts/
+
+# Local secrets and OS files
+.env.*
+!.env.example
+.DS_Store
+.ruff_cache/

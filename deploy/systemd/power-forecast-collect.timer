@@ -1,0 +1,11 @@
+[Unit]
+Description=Collect prices before forecast cutoff
+
+[Timer]
+OnCalendar=*-*-* 10:00,15:00 Europe/Vienna
+AccuracySec=1s
+Persistent=true
+Unit=power-forecast@collect.service
+
+[Install]
+WantedBy=timers.target

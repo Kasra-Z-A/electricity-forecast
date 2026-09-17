@@ -1,0 +1,16 @@
+services:
+  batch:
+    image: power-forecast:${POWER_RELEASE:-current}
+    env_file: /run/power-forecast.env
+    volumes:
+      - /var/lib/power-forecast:/app/data
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    mem_limit: 512m
+    cpus: 1
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

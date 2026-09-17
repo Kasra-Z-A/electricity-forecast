@@ -1,0 +1,32 @@
+{
+  "date": "2026-09-16",
+  "dashboard_url": "https://power.kasra.page",
+  "region": "eu-central-1",
+  "instance_type": "t3.small",
+  "estimated_additional_monthly_usd": "25\u201327 before tax/credits",
+  "source_release_sha256": "56bdb598f8ea152133cb2c120d976c5b8b12d26d9e6c08c2b06274b8038df143",
+  "docker_image_id": "sha256:60fd3c51ee5413bf05e6b60486646048658eba68aa4f478f19ec4aeec5820671",
+  "validation": {
+    "offline_tests_passed": 48,
+    "collection": "success",
+    "cached_delivery_days": 36,
+    "backup_restore": "36 delivery days and 8 replay curves validated",
+    "docker_restart_recovery": "passed",
+    "active_timers": 6,
+    "public_browser_checks": "schedule, metrics, diagram, controls, mobile layout passed",
+    "infrastructure_plan": "No changes",
+    "token_absent_from_terraform_state": true
+  },
+  "first_scheduled_forecast_at": "2026-09-17T10:30:00+02:00",
+  "first_scheduled_delivery_date": "2026-09-18",
+  "pending": [
+    "Seven consecutive scheduled daily attempts",
+    "Learned models and automated promotion",
+    "External host-down alerts"
+  ],
+  "incidents_resolved": [
+    "Bootstrap checksum filename mismatch",
+    "GitHub registry image download stalled; pinned uv installed from PyPI",
+    "Unsupported Compose run flag removed"
+  ]
+}

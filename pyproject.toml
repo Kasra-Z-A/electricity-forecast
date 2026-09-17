@@ -1,0 +1,38 @@
+[project]
+name = "power-forecast"
+version = "0.1.0"
+description = "Daily Austrian day-ahead electricity price forecasting, built as a production ML system"
+readme = "README.md"
+authors = [
+    { name = "Kasra-Z-A" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "defusedxml>=0.7.1",
+    "httpx>=0.28.1",
+    "python-dotenv>=1.2.3",
+    "typer>=0.27.2",
+]
+
+[project.scripts]
+power-forecast = "power_forecast:main"
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.7",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

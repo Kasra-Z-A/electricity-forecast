@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Austrian day-ahead electricity price forecasts, actual auction prices, forecast errors and job status."
+    />
+    <title>Austrian electricity price forecasts — Kasra Zarinehbaf Asadi</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="dashboard.css" />
+    <script src="theme.js"></script>
+    <script src="dashboard.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to dashboard</a>
+    <header class="topbar">
+      <nav aria-label="Main" class="topbar__pill">
+        <a class="mark" href="https://kasra.page">Kasra Zarinehbaf Asadi</a>
+        <div class="navlinks">
+          <a href="https://kasra.page/#work">All work ↗</a
+          ><button id="theme" class="theme" type="button">Dark</button>
+        </div>
+      </nav>
+    </header>
+    <main id="main" class="wrap">
+      <section class="hero">
+        <div>
+          <p class="label">Day-ahead auction · Austria</p>
+          <h1>Austrian electricity<br />price forecasts</h1>
+          <p class="lead">
+            Forecast and actual auction prices by delivery day, with forecast
+            errors and the latest recorded job results.
+          </p>
+        </div>
+        <aside class="hero-note">
+          <span class="label">Forecast model</span>
+          <h2>Weekly baseline</h2>
+          <p>
+            The weekly baseline uses the price at the same local time last week.
+            Errors are calculated when actual auction prices are available.
+          </p>
+          <a href="#method">Forecast method ↓</a>
+        </aside>
+      </section>
+      <div id="availability" class="notice" role="status">
+        Loading the forecast archive…
+      </div>
+      <noscript
+        ><p class="notice">
+          Enable JavaScript to explore the charts and archived forecasts.
+        </p></noscript
+      >
+      <section class="explorer" aria-labelledby="curve-title">
+        <div class="section-head">
+          <div>
+            <p class="label">01 / Prices</p>
+            <h2 id="curve-title">Forecast and actual prices</h2>
+          </div>
+          <div class="controls">
+            <div class="segmented" aria-label="Forecast type">
+              <button id="replay" aria-pressed="true">Historical replay</button
+              ><button id="live" aria-pressed="false">
+                Official forecasts
+              </button>
+            </div>
+            <label class="date-label"
+              >Delivery day<select id="day" aria-label="Delivery day"></select
+            ></label>
+          </div>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-top">
+            <p id="curve-caption">Loading…</p>
+            <div class="legend">
+              <span class="forecast-key">Forecast</span
+              ><span class="actual-key">Actual</span>
+            </div>
+          </div>
+          <div id="empty" class="empty" hidden></div>
+          <svg
+            id="chart"
+            viewBox="0 0 1000 330"
+            role="img"
+            aria-label="Forecast and actual electricity prices"
+          ></svg>
+          <div class="chart-bottom">
+            <span class="label">Europe/Vienna · €/MWh</span
+            ><output id="hover" aria-live="polite"
+              >Choose a time to inspect its prices.</output
+            >
+          </div>
+          <label class="slider-label" for="slot"
+            >Inspect delivery interval</label
+          ><input id="slot" type="range" min="0" value="0" max="95" />
+        </div>
+        <div class="day-facts" id="day-facts"></div>
+        <details id="table-details">
+          <summary>View interval data <span>↗</span></summary>
+          <div class="table-scroll">
+            <table>
+              <caption>
+                Selected delivery day · Vienna time, including UTC offset
+              </caption>
+              <thead>
+                <tr>
+                  <th>Interval start</th>
+                  <th>Forecast €/MWh</th>
+                  <th>Actual €/MWh</th>
+                  <th>Fallback</th>
+                </tr>
+              </thead>
+              <tbody id="intervals"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+      <section class="performance" aria-labelledby="performance-title">
+        <div class="section-head">
+          <div>
+            <p class="label">02 / Evaluation</p>
+            <h2 id="performance-title">Forecast errors</h2>
+          </div>
+          <p class="section-note" id="evaluation-note"></p>
+        </div>
+        <div class="metrics" id="metrics"></div>
+        <p class="muted" id="metric-window"></p>
+        <div class="daily-errors">
+          <p class="label">Daily mean absolute error · €/MWh</p>
+          <div id="error-bars"></div>
+        </div>
+      </section>
+      <section class="bottom-grid">
+        <div id="method">
+          <p class="label">03 / Method</p>
+          <h2>How forecasts are calculated</h2>
+          <p>
+            For each delivery interval, the baseline looks up the same local
+            clock time seven days earlier. If that slot is unavailable, it uses
+            the most recent eligible match within 28 days.
+          </p>
+          <p>
+            Official inputs freeze at 10:30 in Vienna on the preceding day.
+            Publication is due by 10:45. Daylight-saving changes are handled
+            explicitly.
+          </p>
+          <p class="method-note">
+            Historical replays use data retrieved later. They demonstrate the
+            pipeline, but do not establish what was known at the time or prove
+            predictive skill. No trained model or uncertainty intervals are
+            available yet.
+          </p>
+        </div>
+        <div>
+          <p class="label">04 / Operations</p>
+          <h2>Latest job results</h2>
+          <div id="jobs" class="jobs"></div>
+          <p class="muted" id="updated"></p>
+          <p class="muted">
+            Job results describe the latest recorded attempt. They do not
+            confirm that a scheduler is currently running.
+          </p>
+        </div>
+      </section>
+      <section class="pipeline" aria-labelledby="pipeline-title">
+        <div class="section-head">
+          <div>
+            <p class="label">05 / MLOps loop</p>
+            <h2 id="pipeline-title">How a change reaches production</h2>
+          </div>
+        </div>
+        <p class="pipeline-intro">
+          Every improvement travels the same circuit. A change is planned from
+          measured error, tested, built once into a pinned image, deployed to the
+          forecasting host, and scored again once it runs. The measurement is what
+          closes the loop and decides the next change. Dashed stages are the
+          target shape, not what runs today.
+        </p>
+        <figure class="loop">
+          <svg
+            class="loop-svg"
+            viewBox="0 0 1120 470"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <defs>
+              <marker
+                id="loop-arrow"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path class="loop-head" d="M0 0 L10 5 L0 10 Z" />
+              </marker>
+            </defs>
+
+            <!-- the two long returns that make it a loop, not a list -->
+            <path
+              class="loop-track"
+              d="M1003 76 C1060 76 1060 394 1003 394"
+              marker-end="url(#loop-arrow)"
+            />
+            <path
+              class="loop-track"
+              d="M117 394 C60 394 60 76 117 76"
+              marker-end="url(#loop-arrow)"
+            />
+            <text class="loop-edge" x="1030" y="222" text-anchor="end">
+              a reviewed release
+            </text>
+            <text class="loop-edge" x="1030" y="240" text-anchor="end">
+              ships into operation
+            </text>
+            <text class="loop-edge" x="132" y="222">measured error drives</text>
+            <text class="loop-edge" x="132" y="240">the next change</text>
+
+            <!-- top row, left to right -->
+            <line class="loop-track" x1="318" y1="76" x2="342" y2="76" marker-end="url(#loop-arrow)" />
+            <line class="loop-track" x1="548" y1="76" x2="572" y2="76" marker-end="url(#loop-arrow)" />
+            <line class="loop-track" x1="778" y1="76" x2="802" y2="76" marker-end="url(#loop-arrow)" />
+
+            <!-- bottom row, right to left -->
+            <line class="loop-track" x1="802" y1="394" x2="778" y2="394" marker-end="url(#loop-arrow)" />
+            <line class="loop-track" x1="572" y1="394" x2="548" y2="394" marker-end="url(#loop-arrow)" />
+            <line class="loop-track" x1="342" y1="394" x2="318" y2="394" marker-end="url(#loop-arrow)" />
+
+            <g class="loop-stage">
+              <rect class="loop-card" x="117" y="34" width="196" height="84" rx="8" />
+              <text class="loop-num" x="135" y="59">01</text>
+              <text class="loop-title" x="135" y="82">Plan the change</text>
+              <text class="loop-tool" x="135" y="103">Backlog · docs/PLAN.md</text>
+            </g>
+            <g class="loop-stage">
+              <rect class="loop-card" x="347" y="34" width="196" height="84" rx="8" />
+              <text class="loop-num" x="365" y="59">02</text>
+              <text class="loop-title" x="365" y="82">Develop</text>
+              <text class="loop-tool" x="365" y="103">Python 3.12 · uv</text>
+            </g>
+            <g class="loop-stage">
+              <rect class="loop-card" x="577" y="34" width="196" height="84" rx="8" />
+              <text class="loop-num" x="595" y="59">03</text>
+              <text class="loop-title" x="595" y="82">Test locally</text>
+              <text class="loop-tool" x="595" y="103">pytest · Ruff</text>
+            </g>
+            <g class="loop-stage">
+              <rect class="loop-card loop-card--planned" x="807" y="34" width="196" height="84" rx="8" />
+              <text class="loop-num loop-num--planned" x="825" y="59">04 · PLANNED</text>
+              <text class="loop-title" x="825" y="82">Review in CI</text>
+              <text class="loop-tool" x="825" y="103">GitHub Actions</text>
+            </g>
+
+            <g class="loop-stage">
+              <rect class="loop-card loop-card--planned" x="807" y="352" width="196" height="84" rx="8" />
+              <text class="loop-num loop-num--planned" x="825" y="377">05 · PLANNED</text>
+              <text class="loop-title" x="825" y="400">Build the image</text>
+              <text class="loop-tool" x="825" y="421">Docker · ECR</text>
+            </g>
+            <g class="loop-stage">
+              <rect class="loop-card loop-card--planned" x="577" y="352" width="196" height="84" rx="8" />
+              <text class="loop-num loop-num--planned" x="595" y="377">06 · PLANNED</text>
+              <text class="loop-title" x="595" y="400">Deploy to the host</text>
+              <text class="loop-tool" x="595" y="421">ECR digest · SSM</text>
+            </g>
+            <g class="loop-stage">
+              <rect class="loop-card" x="347" y="352" width="196" height="84" rx="8" />
+              <text class="loop-num" x="365" y="377">07</text>
+              <text class="loop-title" x="365" y="400">Run the daily jobs</text>
+              <text class="loop-tool" x="365" y="421">Docker · systemd timers</text>
+            </g>
+            <g class="loop-stage">
+              <rect class="loop-card" x="117" y="352" width="196" height="84" rx="8" />
+              <text class="loop-num" x="135" y="377">08</text>
+              <text class="loop-title" x="135" y="400">Measure &amp; evaluate</text>
+              <text class="loop-tool" x="135" y="421">Scoring · MAE / RMSE</text>
+            </g>
+
+            <!-- what every turn of the loop rests on -->
+            <text class="loop-centre-label" x="560" y="172" text-anchor="middle">
+              SHARED FOUNDATION · EVERY ITERATION
+            </text>
+            <text class="loop-centre" x="560" y="198" text-anchor="middle">
+              Terraform · SSM Parameter Store · Private S3 backups
+            </text>
+            <rect class="loop-inner" x="270" y="232" width="580" height="86" rx="10" />
+            <text class="loop-inner-title" x="560" y="261" text-anchor="middle">
+              Planned · the inner model loop
+            </text>
+            <text class="loop-inner-note" x="560" y="284" text-anchor="middle">
+              Backtest LightGBM candidates against the weekly baseline,
+            </text>
+            <text class="loop-inner-note" x="560" y="302" text-anchor="middle">
+              then gate promotion and rollback with MLflow.
+            </text>
+          </svg>
+
+          <ol class="loop-list">
+            <li>
+              <span class="stage-number">01</span>
+              <h3>Plan the change</h3>
+              <p>Choose the next change from measured error</p>
+              <span class="tool">Backlog · docs/PLAN.md</span>
+            </li>
+            <li>
+              <span class="stage-number">02</span>
+              <h3>Develop</h3>
+              <p>Write the code and its tests in src/</p>
+              <span class="tool">Python 3.12 · uv</span>
+            </li>
+            <li>
+              <span class="stage-number">03</span>
+              <h3>Test locally</h3>
+              <p>Unit tests, lint and format checks</p>
+              <span class="tool">pytest · Ruff</span>
+            </li>
+            <li class="planned-stage">
+              <span class="stage-number">04 · Planned</span>
+              <h3>Review in CI</h3>
+              <p>Run the same checks on every push and pull request</p>
+              <span class="tool">GitHub Actions</span>
+            </li>
+            <li class="planned-stage">
+              <span class="stage-number">05 · Planned</span>
+              <h3>Build the image</h3>
+              <p>Build once in CI and push an immutable digest</p>
+              <span class="tool">Docker · ECR</span>
+            </li>
+            <li class="planned-stage">
+              <span class="stage-number">06 · Planned</span>
+              <h3>Deploy to the host</h3>
+              <p>Pull the pinned digest over SSM — no inbound ports</p>
+              <span class="tool">ECR digest · SSM</span>
+            </li>
+            <li>
+              <span class="stage-number">07</span>
+              <h3>Run the daily jobs</h3>
+              <p>Collect, publish, settle and watch, on Vienna time</p>
+              <span class="tool">Docker · systemd timers</span>
+            </li>
+            <li>
+              <span class="stage-number">08</span>
+              <h3>Measure &amp; evaluate</h3>
+              <p>Score against actual auction prices, then plan again</p>
+              <span class="tool">Scoring · MAE / RMSE</span>
+            </li>
+          </ol>
+
+          <figcaption>
+            One turn of the development loop. The two long arrows are the
+            returns that make it a cycle: a reviewed release ships into
+            operation, and measured error comes back as the next change.
+          </figcaption>
+        </figure>
+        <p class="muted">
+          Solid stages run today; dashed stages are the intended design and are
+          not running yet. In practice the CI workflow exists in the repository
+          but it is not published to GitHub, no image is built centrally or
+          pulled by digest, and no learned model, promotion or rollback is
+          active. Today a release is packaged by hand as a checksummed tarball,
+          copied to private S3, extracted over SSM, and the image is then built
+          on the forecasting host itself — which is the step this design
+          replaces. The schedule and latest outcome of each daily job are in
+          section 04.
+        </p>
+      </section>
+    </main>
+    <footer class="wrap foot">
+      <a href="https://kasra.page">← Back to the portfolio</a>
+      <p class="label">Austrian SDAC · Source: ENTSO-E</p>
+    </footer>
+  </body>
+</html>

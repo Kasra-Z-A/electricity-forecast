@@ -1,0 +1,154 @@
+{
+  "evaluation": "reconstructed replay smoke test, not a held-out model comparison",
+  "days": 8,
+  "intervals": 768,
+  "mae": 34.83647135416667,
+  "rmse": 48.72038167168208,
+  "fallback_intervals": 0,
+  "daily_results": [
+    {
+      "metric_version": 1,
+      "forecast_run_id": "920af56d56d8ef4041526f4c6716f26c945da0260c08ba4c8739e26fea85c6ff",
+      "mode": "reconstructed_replay",
+      "delivery_date": "2026-09-06",
+      "actual_snapshot": {
+        "path": "prices/versions/3e56280c3e5713eada6186a97a26bca8c2598eea23196ce11e1274ef194b984e.json",
+        "sha256": "3e56280c3e5713eada6186a97a26bca8c2598eea23196ce11e1274ef194b984e",
+        "retrieved_at": "2026-09-14T13:14:22.546012+00:00",
+        "delivery_date": "2026-09-06",
+        "intervals": 96
+      },
+      "intervals": 96,
+      "mae": 15.090000000000002,
+      "rmse": 24.760884096695737,
+      "unit": "EUR/MWh",
+      "fallback_intervals": 0
+    },
+    {
+      "metric_version": 1,
+      "forecast_run_id": "7eb655285e374d81051dfb0001221a28f1f476ab30bc6b04584d2091f9108e39",
+      "mode": "reconstructed_replay",
+      "delivery_date": "2026-09-07",
+      "actual_snapshot": {
+        "path": "prices/versions/f6a17c70ebd83d4cd3a9f618bb07441c9927dd894f732cad6f2c7af11bbf78ee.json",
+        "sha256": "f6a17c70ebd83d4cd3a9f618bb07441c9927dd894f732cad6f2c7af11bbf78ee",
+        "retrieved_at": "2026-09-14T13:14:24.126892+00:00",
+        "delivery_date": "2026-09-07",
+        "intervals": 96
+      },
+      "intervals": 96,
+      "mae": 27.033958333333334,
+      "rmse": 33.4700869247452,
+      "unit": "EUR/MWh",
+      "fallback_intervals": 0
+    },
+    {
+      "metric_version": 1,
+      "forecast_run_id": "e94045abdf34dddfffd60da72f2089bbdb976690af683a28cff99257c42de913",
+      "mode": "reconstructed_replay",
+      "delivery_date": "2026-09-08",
+      "actual_snapshot": {
+        "path": "prices/versions/df69daa1981b64f0b74f617b3205b3bab630f99204fbb17fd328736985299941.json",
+        "sha256": "df69daa1981b64f0b74f617b3205b3bab630f99204fbb17fd328736985299941",
+        "retrieved_at": "2026-09-14T13:14:27.910604+00:00",
+        "delivery_date": "2026-09-08",
+        "intervals": 96
+      },
+      "intervals": 96,
+      "mae": 35.29114583333333,
+      "rmse": 44.67206837284718,
+      "unit": "EUR/MWh",
+      "fallback_intervals": 0
+    },
+    {
+      "metric_version": 1,
+      "forecast_run_id": "620b32c126b5a51c46ab4218328b8179decfbd8c522bf37c26c177d0f2fbbc73",
+      "mode": "reconstructed_replay",
+      "delivery_date": "2026-09-09",
+      "actual_snapshot": {
+        "path": "prices/versions/dbea483a860708698eeeb62d29e25ec68878e35e578803ef3270caafd80d3571.json",
+        "sha256": "dbea483a860708698eeeb62d29e25ec68878e35e578803ef3270caafd80d3571",
+        "retrieved_at": "2026-09-14T13:14:28.943028+00:00",
+        "delivery_date": "2026-09-09",
+        "intervals": 96
+      },
+      "intervals": 96,
+      "mae": 22.451874999999998,
+      "rmse": 29.238539421455375,
+      "unit": "EUR/MWh",
+      "fallback_intervals": 0
+    },
+    {
+      "metric_version": 1,
+      "forecast_run_id": "249890636c4d4d47f11c4e89ca754c2d2ad12b2c15b71498b4b06288ef8336cd",
+      "mode": "reconstructed_replay",
+      "delivery_date": "2026-09-10",
+      "actual_snapshot": {
+        "path": "prices/versions/dbd30ba70e6f82c2ac038f7cb176c4aa2ba6cae3735171d19195f64795c7f1fb.json",
+        "sha256": "dbd30ba70e6f82c2ac038f7cb176c4aa2ba6cae3735171d19195f64795c7f1fb",
+        "retrieved_at": "2026-09-14T13:14:32.277621+00:00",
+        "delivery_date": "2026-09-10",
+        "intervals": 96
+      },
+      "intervals": 96,
+      "mae": 34.99614583333334,
+      "rmse": 60.121231092892636,
+      "unit": "EUR/MWh",
+      "fallback_intervals": 0
+    },
+    {
+      "metric_version": 1,
+      "forecast_run_id": "e0454dca7bcf88b91c7ef44514c06d3a50bde8e5d741338655156652c3ddc813",
+      "mode": "reconstructed_replay",
+      "delivery_date": "2026-09-11",
+      "actual_snapshot": {
+        "path": "prices/versions/7d53e2f8184566b384fad06e0a5dfbbc766037ea54d5938f18a07abe5c6bc2d9.json",
+        "sha256": "7d53e2f8184566b384fad06e0a5dfbbc766037ea54d5938f18a07abe5c6bc2d9",
+        "retrieved_at": "2026-09-14T13:14:33.517185+00:00",
+        "delivery_date": "2026-09-11",
+        "intervals": 96
+      },
+      "intervals": 96,
+      "mae": 46.11333333333334,
+      "rmse": 60.23536974859538,
+      "unit": "EUR/MWh",
+      "fallback_intervals": 0
+    },
+    {
+      "metric_version": 1,
+      "forecast_run_id": "204d617d53e7391248fb74b97fb8bb850c2daead61ef964dd94a525d5c26cbb4",
+      "mode": "reconstructed_replay",
+      "delivery_date": "2026-09-12",
+      "actual_snapshot": {
+        "path": "prices/versions/412cbfbdebe3f2d1d0a032e05a5717d7df81e23a319293d1b2d2bbda4a5b165f.json",
+        "sha256": "412cbfbdebe3f2d1d0a032e05a5717d7df81e23a319293d1b2d2bbda4a5b165f",
+        "retrieved_at": "2026-09-14T13:14:35.925744+00:00",
+        "delivery_date": "2026-09-12",
+        "intervals": 96
+      },
+      "intervals": 96,
+      "mae": 49.29510416666667,
+      "rmse": 57.29723778064408,
+      "unit": "EUR/MWh",
+      "fallback_intervals": 0
+    },
+    {
+      "metric_version": 1,
+      "forecast_run_id": "39018fad06a496e770d2aa8af5fd250fb40afdf685d1e10d314b7515993d8cb7",
+      "mode": "reconstructed_replay",
+      "delivery_date": "2026-09-13",
+      "actual_snapshot": {
+        "path": "prices/versions/cabfbb2244d56d1acdf493ca093ce00265bd0a3f4cab8cfc9a9369404b47534e.json",
+        "sha256": "cabfbb2244d56d1acdf493ca093ce00265bd0a3f4cab8cfc9a9369404b47534e",
+        "retrieved_at": "2026-09-14T13:14:37.040224+00:00",
+        "delivery_date": "2026-09-13",
+        "intervals": 96
+      },
+      "intervals": 96,
+      "mae": 48.420208333333335,
+      "rmse": 62.287519516352546,
+      "unit": "EUR/MWh",
+      "fallback_intervals": 0
+    }
+  ]
+}

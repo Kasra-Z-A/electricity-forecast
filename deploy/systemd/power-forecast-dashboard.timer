@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh the public forecast dashboard
+
+[Timer]
+OnCalendar=*-*-* *:02/5:00 Europe/Vienna
+AccuracySec=1s
+Persistent=true
+Unit=power-forecast@dashboard.service
+
+[Install]
+WantedBy=timers.target

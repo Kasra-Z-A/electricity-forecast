@@ -1,0 +1,163 @@
+/* Design tokens. The accent is sampled from the corten steel in the portrait, so
+   the photo and the page share one colour world. */
+:root {
+  --paper: #f4f1ea;
+  --paper-raised: #efebe2;
+  --ink: #16130f;
+  --ink-soft: #3d3730;
+  --muted: #7b7166;
+  --line: #ded7ca;
+  --rust: #7a3b2b;
+  --rust-deep: #5b2a1e;
+  --rust-tint: #e9dbd2;
+
+  --measure: 62ch;
+  --page: 1240px;
+  --gutter: clamp(1.25rem, 4vw, 3.5rem);
+
+  --step-label: 0.6875rem;
+  --step-small: 0.8125rem;
+  --step-body: 1.0625rem;
+  --step-lead: clamp(1.125rem, 1.6vw, 1.375rem);
+  --step-h2: clamp(1.75rem, 3.4vw, 2.75rem);
+  --step-h1: clamp(2.75rem, 7vw, 5rem);
+  --step-metric: clamp(2rem, 4.5vw, 3.25rem);
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  color-scheme: light;
+}
+
+/* Dark mode: a near-black that leans blue, so the rust accent (its colour
+   opposite) carries all the warmth. The accent is lightened, because the
+   light-mode rust is too dark to read on a dark ground.
+
+   Applied only when data-theme="dark" is set. The system setting is deliberately
+   ignored: the default theme is chosen in Base.astro, not by the visitor's OS. */
+:root[data-theme="dark"] {
+  --paper: #121419;
+  --paper-raised: #191c23;
+  --ink: #eceae6;
+  --ink-soft: #c6c1b9;
+  --muted: #8d8881;
+  --line: #2a2e37;
+  --rust: #cd8264;
+  --rust-deep: #8d4c35;
+  --rust-tint: #2b2019;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Inter Variable", system-ui, sans-serif;
+  font-size: var(--step-body);
+  line-height: 1.6;
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+::selection {
+  background: var(--rust);
+  color: var(--paper);
+}
+
+:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* --- shared pieces ------------------------------------------------------- */
+
+.wrap {
+  width: 100%;
+  max-width: var(--page);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* Small mono labels, the quiet metadata layer the reference sites all use. */
+.label {
+  font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+  font-size: var(--step-label);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: var(--step-small);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background 0.25s var(--ease),
+    color 0.25s var(--ease),
+    border-color 0.25s var(--ease);
+}
+
+.pill--solid {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.pill--solid:hover {
+  background: var(--rust);
+  border-color: var(--rust);
+}
+
+.pill--ghost:hover {
+  border-color: var(--ink);
+  background: var(--paper-raised);
+}
+
+.tag {
+  font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+  font-size: var(--step-label);
+  letter-spacing: 0.06em;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+}
