@@ -1,0 +1,36 @@
+{
+  "days": 2909,
+  "span": {
+    "first": "2018-10-01",
+    "last": "2026-09-17"
+  },
+  "missing_days": 0,
+  "gaps": [],
+  "eras": {
+    "hourly": {
+      "days": 2557,
+      "resolution_minutes": 60,
+      "first": "2018-10-01",
+      "last": "2025-09-30"
+    },
+    "native": {
+      "days": 352,
+      "resolution_minutes": 15,
+      "first": "2025-10-01",
+      "last": "2026-09-17"
+    }
+  },
+  "interval_counts": {
+    "23": 7,
+    "24": 2543,
+    "25": 7,
+    "92": 1,
+    "96": 350,
+    "100": 1
+  },
+  "interval_mismatches": [],
+  "checksums_verified": true,
+  "checksum_failures": [],
+  "complete": true,
+  "caveat": "Describes archived coverage only. It does not establish what was retrievable at any past cutoff, and retrospective days may carry later source revisions."
+}
