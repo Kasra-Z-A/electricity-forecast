@@ -181,8 +181,8 @@ AWS_PROFILE=admin bash deploy/publish-dashboard.sh \
 Read `DISTRIBUTION_ID` from `terraform -chdir=../aws-infra/power-site output -raw
 distribution_id`. The script exports with `--static-preview`, uploads only the
 public dashboard directory, and invalidates CloudFront. It does not delete old
-objects or upload the raw archive. AWS SSO credentials are required. Deployment is
-manual until the project has its own repository and a dedicated CI deploy role.
+objects or upload the raw archive. AWS SSO credentials are required. The dashboard
+export is still published manually; the application image is not (see below).
 
 For rollback, rebuild and republish the prior reviewed code/data snapshot. There is
 not yet an automated release history or one-command rollback. Daily jobs and backups
@@ -191,7 +191,14 @@ are now active as described below.
 ## Running EC2 deployment
 
 The production host uses `deploy/compose.server.yaml`, `deploy/run-job.sh`, and
-`deploy/install-server.sh`. The earlier local Compose/Nginx instructions above are
+`deploy/install-server.sh`.
+
+The application image is built once by GitHub Actions in `Kasra-Z-A/electricity-forecast`
+and pushed to the ECR repository `power-forecast`, tagged by commit. The host never
+builds: `install-server.sh` takes a digest, records it as `POWER_IMAGE` in
+`/etc/power-forecast/host.env`, and `run-job.sh` pulls that digest if it is absent.
+A reference without `@sha256:` is refused, so a moved tag cannot change what runs.
+The image that serves a forecast is therefore the image CI tested. The earlier local Compose/Nginx instructions above are
 an alternative local preview setup; the public dashboard continues to use S3.
 
 - Host: one EC2 instance, managed through SSM, no inbound ports.
@@ -222,9 +229,11 @@ systemctl start power-forecast@collect.service
 systemctl start power-forecast@dashboard.service
 ```
 
-For manual rollback, retain the archive, stop the timers, tag the reviewed previous
-image as `power-forecast:current`, and restart the timers and dashboard job. The
-initial image is retained as `power-forecast:baseline-20260916`. Do not restore old
+For rollback, stop the timers, re-run `deploy/install-server.sh` with the previous
+digest, and restart the timers and dashboard job. Rolling back is repointing
+`POWER_IMAGE`, not rebuilding: every digest ECR still retains is a candidate, and
+`aws ecr describe-images` lists them. The pre-ECR image remains on the instance as
+`power-forecast:baseline-20260916`. Do not restore old
 data over newer published forecasts as part of a code rollback. Automatic rollback
 and external host-down alerts are not configured.
 

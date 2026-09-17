@@ -3,7 +3,10 @@
 set -euo pipefail
 umask 077
 cd /opt/electricity-forecast
+# set -a so Compose's variable substitution sees POWER_IMAGE, not just the shell.
+set -a
 source /etc/power-forecast/host.env
+set +a
 export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-eu-central-1}
 exec 9>/run/power-forecast-host.lock
 flock -w 90 9
@@ -28,6 +31,14 @@ if [[ "$job" == collect || "$job" == settle ]]; then
   aws ssm get-parameter --name "$POWER_TOKEN_PARAMETER" --with-decryption --query Parameter.Value --output text >> /run/power-forecast.env
 fi
 status=0
+: "${POWER_IMAGE:?POWER_IMAGE unset; run deploy/install-server.sh with a digest}"
+# Pull only when the digest is absent, so a scheduled job is not blocked on the
+# registry once the image is on disk.
+if ! docker image inspect "$POWER_IMAGE" >/dev/null 2>&1; then
+  aws ecr get-login-password --region "$AWS_DEFAULT_REGION" |
+    docker login --username AWS --password-stdin "$POWER_REGISTRY"
+  docker pull "$POWER_IMAGE"
+fi
 docker compose -f deploy/compose.server.yaml run --rm batch job "$job" || status=$?
 # Export fresh status even when the preceding operation failed.
 if [[ "$job" != dashboard ]]; then
