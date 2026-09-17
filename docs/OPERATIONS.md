@@ -232,8 +232,11 @@ systemctl start power-forecast@dashboard.service
 For rollback, stop the timers, re-run `deploy/install-server.sh` with the previous
 digest, and restart the timers and dashboard job. Rolling back is repointing
 `POWER_IMAGE`, not rebuilding: every digest ECR still retains is a candidate, and
-`aws ecr describe-images` lists them. The pre-ECR image remains on the instance as
-`power-forecast:baseline-20260916`. Do not restore old
+`aws ecr describe-images` lists them. The lifecycle policy keeps ten, so a target
+exists from the second push onward; with only one image there is nothing to roll
+back to. The images built on the host before ECR were deleted on 2026-09-17, so
+the first ECR deployment is the baseline and every image the host can run now
+comes from the registry. Do not restore old
 data over newer published forecasts as part of a code rollback. Automatic rollback
 and external host-down alerts are not configured.
 

@@ -174,8 +174,7 @@
           Every improvement travels the same circuit. A change is planned from
           measured error, tested, built once into a pinned image, deployed to the
           forecasting host, and scored again once it runs. The measurement is what
-          closes the loop and decides the next change. Dashed stages are the
-          target shape, not what runs today.
+          closes the loop and decides the next change.
         </p>
         <figure class="loop">
           <svg
@@ -247,21 +246,21 @@
               <text class="loop-tool" x="595" y="103">pytest · Ruff</text>
             </g>
             <g class="loop-stage">
-              <rect class="loop-card loop-card--planned" x="807" y="34" width="196" height="84" rx="8" />
-              <text class="loop-num loop-num--planned" x="825" y="59">04 · PLANNED</text>
+              <rect class="loop-card" x="807" y="34" width="196" height="84" rx="8" />
+              <text class="loop-num" x="825" y="59">04</text>
               <text class="loop-title" x="825" y="82">Review in CI</text>
               <text class="loop-tool" x="825" y="103">GitHub Actions</text>
             </g>
 
             <g class="loop-stage">
-              <rect class="loop-card loop-card--planned" x="807" y="352" width="196" height="84" rx="8" />
-              <text class="loop-num loop-num--planned" x="825" y="377">05 · PLANNED</text>
+              <rect class="loop-card" x="807" y="352" width="196" height="84" rx="8" />
+              <text class="loop-num" x="825" y="377">05</text>
               <text class="loop-title" x="825" y="400">Build the image</text>
               <text class="loop-tool" x="825" y="421">Docker · ECR</text>
             </g>
             <g class="loop-stage">
-              <rect class="loop-card loop-card--planned" x="577" y="352" width="196" height="84" rx="8" />
-              <text class="loop-num loop-num--planned" x="595" y="377">06 · PLANNED</text>
+              <rect class="loop-card" x="577" y="352" width="196" height="84" rx="8" />
+              <text class="loop-num" x="595" y="377">06</text>
               <text class="loop-title" x="595" y="400">Deploy to the host</text>
               <text class="loop-tool" x="595" y="421">ECR digest · SSM</text>
             </g>
@@ -316,20 +315,20 @@
               <p>Unit tests, lint and format checks</p>
               <span class="tool">pytest · Ruff</span>
             </li>
-            <li class="planned-stage">
-              <span class="stage-number">04 · Planned</span>
+            <li>
+              <span class="stage-number">04</span>
               <h3>Review in CI</h3>
               <p>Run the same checks on every push and pull request</p>
               <span class="tool">GitHub Actions</span>
             </li>
-            <li class="planned-stage">
-              <span class="stage-number">05 · Planned</span>
+            <li>
+              <span class="stage-number">05</span>
               <h3>Build the image</h3>
               <p>Build once in CI and push an immutable digest</p>
               <span class="tool">Docker · ECR</span>
             </li>
-            <li class="planned-stage">
-              <span class="stage-number">06 · Planned</span>
+            <li>
+              <span class="stage-number">06</span>
               <h3>Deploy to the host</h3>
               <p>Pull the pinned digest over SSM — no inbound ports</p>
               <span class="tool">ECR digest · SSM</span>
@@ -355,14 +354,14 @@
           </figcaption>
         </figure>
         <p class="muted">
-          Solid stages run today; dashed stages are the intended design and are
-          not running yet. In practice the CI workflow exists in the repository
-          but it is not published to GitHub, no image is built centrally or
-          pulled by digest, and no learned model, promotion or rollback is
-          active. Today a release is packaged by hand as a checksummed tarball,
-          copied to private S3, extracted over SSM, and the image is then built
-          on the forecasting host itself — which is the step this design
-          replaces. The schedule and latest outcome of each daily job are in
+          Every numbered stage above runs today. CI runs the tests on each push
+          and, on main, builds the image once and pushes it to ECR; the host
+          pulls that exact digest and builds nothing, so what serves a forecast
+          is what CI tested, and rollback is repointing the digest. The dashed
+          box is the model loop, which does not exist yet: no learned model,
+          gated promotion or automatic rollback is running. The deployment
+          scripts themselves still ship as a checksummed tarball through private
+          S3 and SSM. The schedule and latest outcome of each daily job are in
           section 04.
         </p>
       </section>
