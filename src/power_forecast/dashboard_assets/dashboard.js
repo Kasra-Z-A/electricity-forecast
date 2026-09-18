@@ -68,6 +68,11 @@ function selectMode(next) {
     }),
   );
   $("day").disabled = !curves.length;
+  // Prefer the newest day that already has actual prices. Tomorrow is published
+  // but cannot be scored until its auction clears, so opening on it shows a
+  // forecast with no actual line and nothing to compare it against.
+  const scored = curves.find((c) => c.points.some((p) => p.actual != null));
+  if (scored) $("day").value = scored.date;
   renderCurve();
   renderMetrics();
 }
