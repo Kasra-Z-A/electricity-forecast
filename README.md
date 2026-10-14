@@ -46,6 +46,23 @@ and RMSE **48.72 EUR/MWh** over 768 intervals (September 6–13, 2026). This ver
 the pipeline; it is not a held-out model comparison or evidence of predictive skill.
 See [the report](reports/baseline_smoke.json). Deployment templates exist; daily jobs are deployed on EC2.
 
+**Validation backtest (M3).** Weekly-refit rolling origins on frozen windows, MAE in
+EUR/MWh, holdouts untouched ([report](reports/backtest_models.json)):
+
+| | Hourly 2021–2023 | Native Apr–Jun 2026 |
+|---|---|---|
+| Weekly baseline (skill reference) | 40.92 | 37.05 |
+| Prior-day baseline (production) | 29.34 | 30.42 |
+| Ridge, expanding window | **25.30** | 26.56 |
+| Ridge, 180-day window | 26.45 | **26.49** |
+| LightGBM, expanding window | 25.43 | 27.45 |
+| LightGBM, 180-day window | 27.26 | 27.20 |
+
+Ridge beats the prior-day baseline by 13–14% in both eras, with week-block 95%
+intervals clear of zero. LightGBM does not beat ridge, and on native data its
+interval against prior-day crosses zero. Native validation is only 91 days.
+Inputs are archived versions retrieved in September 2026, not past vintages.
+
 ## Sources
 
 - [ENTSO-E Transparency Platform](https://transparency.entsoe.eu): auction prices
@@ -63,8 +80,8 @@ Environment variables override `.env` values.
 ```bash
 uv run power-forecast doctor
 uv run power-forecast ingest-prices 2026-09-13
-uv run pytest -q
-uv run ruff check src tests
+uv run --group research pytest -q
+uv run ruff check src tests experiments
 ```
 
 `doctor` checks configuration without contacting ENTSO-E. `ingest-prices` refreshes
@@ -99,6 +116,17 @@ uv run power-forecast forecast 2026-09-13 --replay
 uv run power-forecast score data/forecasts/RUN_ID.json
 # Reproduce the eight-day smoke report:
 uv run python experiments/baseline_smoke.py
+```
+
+The research reports need the full archive and the `research` dependency group
+(numpy, scikit-learn, LightGBM; macOS also needs `brew install libomp`). Production
+never installs that group:
+
+```bash
+uv run python experiments/coverage_report.py
+uv run python experiments/freeze_splits.py
+uv run python experiments/backtest_baselines.py
+uv run --group research python experiments/backtest_models.py  # about 10 minutes
 ```
 
 Without `--replay`, a forecast runs only after its 10:30 Vienna cutoff, using input

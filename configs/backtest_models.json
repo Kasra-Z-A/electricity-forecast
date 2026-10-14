@@ -1,0 +1,17 @@
+{
+  "_comment": "Preregistered model settings for the M3 validation backtest. Hyperparameters are fixed library-default-scale values, not tuned; the only choice made on validation is the training window from configs/splits.json. JSON rather than the YAML PLAN.md names (configs/backtest_native.yaml), to avoid a parser dependency.",
+  "seed": 0,
+  "models": {
+    "ridge": {"alpha": 1.0},
+    "lightgbm": {
+      "objective": "l1",
+      "n_estimators": 400,
+      "learning_rate": 0.05,
+      "num_leaves": 31,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "subsample_freq": 1,
+      "colsample_bytree": 0.8
+    }
+  }
+}

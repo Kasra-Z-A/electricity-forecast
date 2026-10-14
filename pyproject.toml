@@ -26,6 +26,11 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.16.7",
 ]
+research = [
+    "lightgbm>=4.7.0",
+    "numpy>=2.5.4",
+    "scikit-learn>=1.9.1",
+]
 
 [tool.ruff]
 target-version = "py312"
