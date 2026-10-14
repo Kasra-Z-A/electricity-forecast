@@ -1,0 +1,85 @@
+{
+  "date": "2026-10-14",
+  "milestone": "M2",
+  "source": "public dashboard export (generated 2026-10-14T12:37:01Z) and read-only SSM inspection of the host at 2026-10-14T12:44Z",
+  "scheduled_attempts": {
+    "first_delivery_date": "2026-09-18",
+    "last_delivery_date": "2026-10-15",
+    "official_runs": 28,
+    "missing_delivery_days": 0,
+    "status": "on_time for all 28",
+    "published_at_vienna": "10:30:01 for all 28",
+    "fallback_intervals": 0,
+    "fully_scored_days": 28,
+    "model": "seasonal-weekly-v1"
+  },
+  "baseline_score": {
+    "intervals": 2688,
+    "mae_eur_mwh": 38.61,
+    "rmse_eur_mwh": 58.22,
+    "weighting": "interval count",
+    "worst_day": {
+      "delivery_date": "2026-09-21",
+      "mae_eur_mwh": 109.7
+    }
+  },
+  "scheduler_active": true,
+  "criteria": {
+    "seven_scheduled_attempts": "met (28 consecutive)",
+    "prospective_snapshots_accumulating": "met",
+    "host_outage_retry_drill": "deferred by decision on 2026-10-14; Docker restart recovery passed on 2026-09-16 and is the only recovery evidence so far"
+  },
+  "open_questions": [
+    "Whether settle should treat a not-yet-published target day and a failed refresh of an already-scored day as success with a note instead of partial"
+  ],
+  "caveat": "Snapshot counts are file modification dates on the host, not a per-day audit of which delivery days each version covers.",
+  "host": {
+    "boots_since_deployment": 1,
+    "uptime_days": 27,
+    "official_pointers": 28,
+    "timers_active": 6,
+    "data_dir_size": "70M",
+    "root_disk_used_percent": 12,
+    "attempts": {
+      "collect": {
+        "success": 55,
+        "partial": 2
+      },
+      "publish": {
+        "success": 168
+      },
+      "settle": {
+        "success": 73,
+        "partial": 38
+      },
+      "watchdog": {
+        "success": 83,
+        "unhealthy": 1
+      },
+      "dashboard": {
+        "success": 8424
+      }
+    },
+    "watchdog_unhealthy_note": "one unhealthy result; OPERATIONS.md expects one for the startup day without an official forecast, but its date was not checked"
+  },
+  "prospective_snapshots": {
+    "price_versions_and_raw_files_written_per_day": "29-35 every day from 2026-09-17 to 2026-10-13; 22 by midday 2026-10-14",
+    "price_versions_total": 472,
+    "raw_files_total": 506,
+    "scores_total": 286
+  },
+  "settle_partial": {
+    "summary": "All 28 official days ended scored. Partial runs are not lost scores.",
+    "by_utc_run": {
+      "11:00": "28 of 28 partial",
+      "12:00": "5 of 28 partial",
+      "14:00": "3 of 27 partial",
+      "18:00": "2 of 28 partial"
+    },
+    "failed_items": {
+      "target_day_SourceError": 33,
+      "refresh_of_older_day_SourceError": 15
+    },
+    "cause": "The 13:00 Vienna run asks for the target day before ENTSO-E has published the auction result, so it is partial every day. Later partials are SourceErrors on the three-day revision refresh for days before the target day, which already hold an earlier score. Either case exits nonzero, so systemd shows power-forecast@settle.service as failed."
+  }
+}

@@ -8,8 +8,10 @@ is September 17, 2026 at 10:30 Europe/Vienna, for delivery on September 18.
 
 Verified on September 16: real collection succeeded, 36 delivery days were cached,
 the private S3 backup was restored and checksum-validated, and Docker restart
-recovery preserved data and active timers. Seven scheduled daily attempts still
-need to be observed. No learned model or automatic model promotion is running.
+recovery preserved data and active timers. By October 14, 28 consecutive scheduled
+attempts (delivery September 18 to October 15) had published on time and been scored;
+see reports/m2_observation_2026-10-14.json. No learned model or automatic model
+promotion is running.
 
 ## Commands
 
@@ -114,9 +116,18 @@ The watchdog writes local diagnostics and exits nonzero. External alerts and hos
 monitoring are not configured. Private S3 backups are active. A powered-off host cannot run its own
 watchdog. Historical missed dates can be inspected explicitly after recovery.
 
-M2 acceptance still requires seven real scheduled delivery-day attempts, a host
-outage/retry drill, and evidence that prospective snapshots are accumulating. The
-offline outage test does not substitute for those observations.
+M2 acceptance required seven real scheduled delivery-day attempts (met: 28 by
+October 14), evidence that prospective snapshots are accumulating (met: new price
+versions every day since September 17), and a host outage/retry drill. The drill was
+deferred on October 14; the Docker restart recovery of September 16 is the only
+recovery evidence, and the offline outage test does not substitute for a real one.
+See reports/m2_observation_2026-10-14.json.
+
+The 13:00 settle run is partial every day because the auction result for the target
+day is not yet available from ENTSO-E; later runs score it. A transient failure while
+refreshing an already-scored day also marks a run partial. Both exit nonzero, so
+`systemctl --failed` can list `power-forecast@settle.service` while every official
+day is scored.
 
 ## Dashboard
 
