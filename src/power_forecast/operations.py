@@ -13,7 +13,7 @@ from power_forecast.config import api_key
 from power_forecast.history import atomic_json, ingest_day
 from power_forecast.ingestion.entsoe import SourceError
 from power_forecast.scoring import score
-from power_forecast.timegrid import VIENNA, forecast_cutoff
+from power_forecast.timegrid import VIENNA, forecast_cutoff, results_expected
 
 
 def utcnow() -> datetime:
@@ -85,11 +85,6 @@ def collect(day: date, data_dir: Path) -> dict:
     }
 
 
-# Auction results for D reach ENTSO-E in the early afternoon of D-1. Before this
-# point an unavailable target day is expected, not a failure.
-RESULTS_EXPECTED_AFTER_CUTOFF = timedelta(hours=5)
-
-
 def settle(day: date, data_dir: Path) -> dict:
     key = api_key()
     now = utcnow()
@@ -121,7 +116,7 @@ def settle(day: date, data_dir: Path) -> dict:
             # Only a day that should be scorable and still has no score is a failure.
             if run.stem in scored:
                 status = "kept_previous_score"
-            elif target == day and now < forecast_cutoff(day) + RESULTS_EXPECTED_AFTER_CUTOFF:
+            elif target == day and now < results_expected(day):
                 status = "awaiting_results"
             else:
                 status = "pending_or_failed"

@@ -1,0 +1,22 @@
+{
+  "_comment": "Frozen before model selection (PLAN.md section 8). JSON rather than the YAML PLAN.md names, to avoid a parser dependency for one file. Change a window only with a recorded reason; reports/splits.json pins this file's checksum.",
+  "refit_days": 7,
+  "training_windows": ["expanding", 180],
+  "eras": {
+    "hourly": {
+      "resolution_minutes": 60,
+      "train": ["2018-10-01", "2020-12-31"],
+      "validation": ["2021-01-01", "2023-12-31"],
+      "holdout": ["2024-01-01", "2024-12-31"],
+      "slices": {"stress_2022": ["2022-01-01", "2022-12-31"]}
+    },
+    "native": {
+      "resolution_minutes": 15,
+      "train": ["2025-10-01", "2026-03-31"],
+      "validation": ["2026-04-01", "2026-06-30"],
+      "holdout": ["2026-07-01", "2026-08-31"],
+      "prospective_from": "2026-09-01"
+    }
+  },
+  "fixture_days": ["2025-09-30", "2025-10-01", "2025-10-26", "2026-03-29"]
+}

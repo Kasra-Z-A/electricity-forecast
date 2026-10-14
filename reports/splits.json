@@ -1,0 +1,48 @@
+{
+  "config": "configs/splits.json",
+  "config_sha256": "b0c184c2644e31112b4730f46b10e819f59e3865283d88f21b89e217d2ff05f2",
+  "coverage_span": {
+    "first": "2018-10-01",
+    "last": "2026-09-17"
+  },
+  "refit_days": 7,
+  "origins": {
+    "hourly": {
+      "validation": {
+        "origins": 157,
+        "first_origin_train_days": {
+          "expanding": 823,
+          "180": 180
+        }
+      },
+      "holdout": {
+        "origins": 53,
+        "first_origin_train_days": {
+          "expanding": 1918,
+          "180": 180
+        }
+      }
+    },
+    "native": {
+      "validation": {
+        "origins": 13,
+        "first_origin_train_days": {
+          "expanding": 182,
+          "180": 180
+        }
+      },
+      "holdout": {
+        "origins": 9,
+        "first_origin_train_days": {
+          "expanding": 273,
+          "180": 180
+        }
+      }
+    }
+  },
+  "caveats": [
+    "Windows are frozen before model selection. The holdout is consulted once for release assessment; a consulted holdout is no longer untouched.",
+    "Native history is short: at the first validation origin the expanding and 180-day windows differ by two days, so that comparison only separates at later origins.",
+    "2025-09-30 is a time-grid fixture but lies in no fold; the hourly holdout ends in 2024 as PLAN.md proposes."
+  ]
+}
