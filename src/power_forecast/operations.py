@@ -85,8 +85,14 @@ def collect(day: date, data_dir: Path) -> dict:
     }
 
 
+# Auction results for D reach ENTSO-E in the early afternoon of D-1. Before this
+# point an unavailable target day is expected, not a failure.
+RESULTS_EXPECTED_AFTER_CUTOFF = timedelta(hours=5)
+
+
 def settle(day: date, data_dir: Path) -> dict:
     key = api_key()
+    now = utcnow()
     results = []
     # Retry every unscored official day, and refresh three recent days for revisions.
     scored = {
@@ -112,17 +118,24 @@ def settle(day: date, data_dir: Path) -> dict:
                 }
             )
         except (SourceError, ValueError, OSError) as error:
+            # Only a day that should be scorable and still has no score is a failure.
+            if run.stem in scored:
+                status = "kept_previous_score"
+            elif target == day and now < forecast_cutoff(day) + RESULTS_EXPECTED_AFTER_CUTOFF:
+                status = "awaiting_results"
+            else:
+                status = "pending_or_failed"
             results.append(
-                {
-                    "day": str(target),
-                    "status": "pending_or_failed",
-                    "error_type": type(error).__name__,
-                }
+                {"day": str(target), "status": status, "error_type": type(error).__name__}
             )
         sleep(0.5)
     return {
         "results": results,
-        "status": "partial" if any(item["status"] != "scored" for item in results) else "success",
+        "status": (
+            "partial"
+            if any(item["status"] == "pending_or_failed" for item in results)
+            else "success"
+        ),
     }
 
 

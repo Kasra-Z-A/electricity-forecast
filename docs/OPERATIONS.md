@@ -123,11 +123,13 @@ deferred on October 14; the Docker restart recovery of September 16 is the only
 recovery evidence, and the offline outage test does not substitute for a real one.
 See reports/m2_observation_2026-10-14.json.
 
-The 13:00 settle run is partial every day because the auction result for the target
-day is not yet available from ENTSO-E; later runs score it. A transient failure while
-refreshing an already-scored day also marks a run partial. Both exit nonzero, so
-`systemctl --failed` can list `power-forecast@settle.service` while every official
-day is scored.
+Until October 14 the 13:00 settle run was partial every day, because the auction
+result for the target day is not yet available from ENTSO-E, and a transient failure
+while refreshing an already-scored day also marked a run partial. Both exited nonzero,
+so `power-forecast@settle.service` showed as failed while every official day was
+scored. Settle now records those cases as `awaiting_results` (target day, before
+15:30 Vienna on D-1) and `kept_previous_score`. A run is partial only when an official
+day that should be scorable still has no score.
 
 ## Dashboard
 

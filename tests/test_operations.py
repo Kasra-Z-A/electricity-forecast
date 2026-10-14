@@ -154,3 +154,30 @@ def test_pending_scoring_retries_after_source_recovers(tmp_path):
         patch("power_forecast.history.fetch_prices", return_value=payload(DAY)),
     ):
         assert run_job("settle", tmp_path, DAY)["status"] == "success"
+
+
+def test_settle_distinguishes_unpublished_results_from_failures(tmp_path):
+    eligible_history(tmp_path)
+    with patch("power_forecast.operations.utcnow", return_value=CUTOFF):
+        run_job("publish", tmp_path, DAY)
+
+    def settle_at(hours, **source):
+        with (
+            patch("power_forecast.operations.utcnow", return_value=CUTOFF + timedelta(hours=hours)),
+            patch("power_forecast.operations.api_key", return_value="test"),
+            patch("power_forecast.operations.sleep"),
+            patch("power_forecast.history.fetch_prices", **source),
+        ):
+            return run_job("settle", tmp_path, DAY)
+
+    unpublished = {"side_effect": SourceError("No data")}
+    early = settle_at(2.5, **unpublished)
+    assert early["status"] == "success"
+    assert early["result"]["results"][0]["status"] == "awaiting_results"
+    overdue = settle_at(5.5, **unpublished)
+    assert overdue["status"] == "partial"
+    assert overdue["result"]["results"][0]["status"] == "pending_or_failed"
+    assert settle_at(5.5, return_value=payload(DAY))["status"] == "success"
+    refresh_failed = settle_at(9.5, **unpublished)
+    assert refresh_failed["status"] == "success"
+    assert refresh_failed["result"]["results"][0]["status"] == "kept_previous_score"
