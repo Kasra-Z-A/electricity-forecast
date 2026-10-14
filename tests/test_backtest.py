@@ -6,7 +6,7 @@ import pytest
 from test_history_baseline import payload
 
 from power_forecast.backtest import backtest, load_archive, predict, trailing_high_price
-from power_forecast.baseline import forecast, slot_lookup
+from power_forecast.baseline import PRODUCTION_MODEL, forecast, slot_lookup
 from power_forecast.history import ingest_day
 from power_forecast.metrics import paired_comparison, summarize
 
@@ -26,11 +26,15 @@ def seed_days(tmp_path, first, last):
 
 
 @pytest.mark.parametrize("target", [date(2026, 3, 29), date(2025, 10, 27), date(2026, 9, 17)])
-def test_weekly_backtest_matches_production_forecast(tmp_path, target):
+@pytest.mark.parametrize(
+    "strategy, model", [("weekly", "seasonal-weekly-v1"), ("prior_day", "seasonal-daily-v1")]
+)
+def test_backtest_matches_production_forecast(tmp_path, target, strategy, model):
     seed_days(tmp_path, target - timedelta(days=28), target - timedelta(days=1))
-    run = json.loads(forecast(target, tmp_path, replay=True).read_text())
+    run = json.loads(forecast(target, tmp_path, replay=True, model=model).read_text())
+    assert run["model"] == model
     archive = load_archive(tmp_path)
-    points = predict("weekly", slot_lookup(archive.values()), target)
+    points = predict(strategy, slot_lookup(archive.values()), target)
     assert [p["point"] for p in points] == [p["point"] for p in run["predictions"]]
     assert [p["fallback"] for p in points] == [p["fallback"] for p in run["predictions"]]
 
@@ -78,3 +82,7 @@ def test_paired_comparison_and_summary(tmp_path):
     assert summary["intervals"] == 14 * 96
     assert summary["slices"]["high_price"]["intervals"] == 0
     assert set(summary["by_weekday"]) == {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+
+
+def test_production_publishes_the_daily_baseline():
+    assert PRODUCTION_MODEL == "seasonal-daily-v1"

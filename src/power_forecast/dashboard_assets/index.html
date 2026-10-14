@@ -36,10 +36,11 @@
         </div>
         <aside class="hero-note">
           <span class="label">Forecast model</span>
-          <h2>Weekly baseline</h2>
+          <h2>Prior-day baseline</h2>
           <p>
-            The weekly baseline uses the price at the same local time last week.
-            Errors are calculated when actual auction prices are available.
+            The prior-day baseline uses the price at the same local time on the
+            previous day. Errors are calculated when actual auction prices are
+            available.
           </p>
           <a href="#method">Forecast method ↓</a>
         </aside>
@@ -137,8 +138,15 @@
           <h2>How forecasts are calculated</h2>
           <p>
             For each delivery interval, the baseline looks up the same local
-            clock time seven days earlier. If that slot is unavailable, it uses
+            clock time one day earlier. If that slot is unavailable, it uses
             the most recent eligible match within 28 days.
+          </p>
+          <p>
+            Official forecasts for delivery before 16 October 2026 used the
+            same time seven days earlier. Over the 2021–2023 and April–June 2026 validation
+            windows the prior-day rule had 28% and 18% lower mean absolute
+            error, so it replaced the weekly rule, which remains the reference
+            for measuring skill.
           </p>
           <p>
             Official inputs freeze at 10:30 in Vienna on the preceding day.
@@ -289,7 +297,7 @@
               Planned · the inner model loop
             </text>
             <text class="loop-inner-note" x="560" y="284" text-anchor="middle">
-              Backtest LightGBM candidates against the weekly baseline,
+              Backtest LightGBM candidates against the seasonal baselines,
             </text>
             <text class="loop-inner-note" x="560" y="302" text-anchor="middle">
               then gate promotion and rollback with MLflow.

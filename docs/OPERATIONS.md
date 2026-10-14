@@ -8,7 +8,9 @@ is September 17, 2026 at 10:30 Europe/Vienna, for delivery on September 18.
 
 Verified on September 16: real collection succeeded, 36 delivery days were cached,
 the private S3 backup was restored and checksum-validated, and Docker restart
-recovery preserved data and active timers. By October 14, 28 consecutive scheduled
+recovery preserved data and active timers. Official forecasts use `seasonal-daily-v1`
+from delivery day October 16, 2026; earlier official days used `seasonal-weekly-v1`.
+The dashboard's error metrics cover only the newest day's model. By October 14, 28 consecutive scheduled
 attempts (delivery September 18 to October 15) had published on time and been scored;
 see reports/m2_observation_2026-10-14.json. No learned model or automatic model
 promotion is running.

@@ -11,6 +11,8 @@ from power_forecast.history import atomic_json, ingest_day, load_version
 from power_forecast.ingestion.entsoe import AREA, SourceError
 from power_forecast.timegrid import day_bounds, delivery_grid, forecast_cutoff
 
+WEEKLY = "seasonal-weekly-v1"
+
 
 def payload(day):
     start, end = day_bounds(day)
@@ -80,19 +82,19 @@ def test_weekly_replay_and_future_information_rejected(tmp_path):
     day = date(2026, 9, 13)
     now = forecast_cutoff(day) + timedelta(minutes=5)
     with pytest.raises(SourceError, match="No eligible"):
-        forecast(day, tmp_path, now=now)
-    output = forecast(day, tmp_path, replay=True, now=now)
+        forecast(day, tmp_path, now=now, model=WEEKLY)
+    output = forecast(day, tmp_path, replay=True, now=now, model=WEEKLY)
     value = json.loads(output.read_text())
     assert value["mode"] == "reconstructed_replay"
     assert [p["point"] for p in value["predictions"]] == list(range(1, 97))
     assert not any(p["fallback"] for p in value["predictions"])
-    assert forecast(day, tmp_path, replay=True, now=now) == output
+    assert forecast(day, tmp_path, replay=True, now=now, model=WEEKLY) == output
 
 
 def test_dst_local_mapping_and_missing_spring_slot(tmp_path):
     seed(tmp_path, date(2026, 3, 29))  # prior week has no 02:xx
     seed(tmp_path, date(2026, 4, 4))
-    value = json.loads(forecast(date(2026, 4, 5), tmp_path, replay=True).read_text())
+    value = json.loads(forecast(date(2026, 4, 5), tmp_path, replay=True, model=WEEKLY).read_text())
     fallback = [p for p in value["predictions"] if p["fallback"]]
     assert len(fallback) == 4
     assert all(p["lag_days"] == 1 for p in fallback)
@@ -100,11 +102,13 @@ def test_dst_local_mapping_and_missing_spring_slot(tmp_path):
 
 def test_autumn_fold_and_hourly_transition(tmp_path):
     seed(tmp_path, date(2025, 10, 19))
-    value = json.loads(forecast(date(2025, 10, 26), tmp_path, replay=True).read_text())
+    value = json.loads(
+        forecast(date(2025, 10, 26), tmp_path, replay=True, model=WEEKLY).read_text()
+    )
     assert len(value["predictions"]) == 100
     assert [p["point"] for p in value["predictions"]][8:16] == [9, 10, 11, 12] * 2
     seed(tmp_path, date(2025, 9, 24))
-    value = json.loads(forecast(date(2025, 10, 1), tmp_path, replay=True).read_text())
+    value = json.loads(forecast(date(2025, 10, 1), tmp_path, replay=True, model=WEEKLY).read_text())
     assert len(value["predictions"]) == 96
     assert all(p["hourly_derived"] for p in value["predictions"])
     assert [p["point"] for p in value["predictions"]][:4] == [1] * 4

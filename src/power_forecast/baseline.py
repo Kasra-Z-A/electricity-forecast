@@ -1,4 +1,4 @@
-"""Cutoff-aware local-clock weekly baseline and immutable forecast artifacts."""
+"""Cutoff-aware local-clock seasonal baselines and immutable forecast artifacts."""
 
 import hashlib
 import json
@@ -9,8 +9,13 @@ from power_forecast.history import atomic_json, historical_versions, resolution
 from power_forecast.ingestion.entsoe import SourceError
 from power_forecast.timegrid import VIENNA, delivery_grid, forecast_cutoff
 
-# Weekly first; missing slots use the most recent eligible matching slot.
+# Each model tries its first lag; missing slots use the most recent eligible match.
 WEEKLY_LAGS = [7] + [n for n in range(1, 29) if n != 7]
+DAILY_LAGS = list(range(1, 29))
+MODELS = {"seasonal-weekly-v1": WEEKLY_LAGS, "seasonal-daily-v1": DAILY_LAGS}
+# Daily replaced weekly on 2026-10-14 after the validation backtest
+# (reports/backtest_baselines.json); weekly stays the skill reference.
+PRODUCTION_MODEL = "seasonal-daily-v1"
 
 
 def slot_lookup(snapshots) -> dict:
@@ -41,7 +46,14 @@ def matching_slot(lookup: dict, day: date, target: datetime, lag: int):
     )
 
 
-def forecast(day: date, data_dir: Path, replay: bool = False, now: datetime | None = None) -> Path:
+def forecast(
+    day: date,
+    data_dir: Path,
+    replay: bool = False,
+    now: datetime | None = None,
+    model: str = PRODUCTION_MODEL,
+) -> Path:
+    lags = MODELS[model]
     now = now or datetime.now(UTC)
     cutoff = forecast_cutoff(day)
     if not replay and now < cutoff:
@@ -51,7 +63,7 @@ def forecast(day: date, data_dir: Path, replay: bool = False, now: datetime | No
     used = {}
     for target in delivery_grid(day, resolution(day)):
         match = None
-        for lag in WEEKLY_LAGS:
+        for lag in lags:
             match = matching_slot(lookup, day, target, lag)
             if match:
                 break
@@ -69,7 +81,7 @@ def forecast(day: date, data_dir: Path, replay: bool = False, now: datetime | No
                 "source_start": row.start.isoformat(),
                 "source_snapshot": record["sha256"],
                 "lag_days": lag,
-                "fallback": lag != 7 or row.minutes != resolution(day),
+                "fallback": lag != lags[0] or row.minutes != resolution(day),
                 "hourly_derived": row.minutes != resolution(day),
             }
         )
@@ -80,7 +92,7 @@ def forecast(day: date, data_dir: Path, replay: bool = False, now: datetime | No
     lock = Path("uv.lock")
     artifact = {
         "schema_version": 1,
-        "model": "seasonal-weekly-v1",
+        "model": model,
         "delivery_date": str(day),
         "cutoff_at": cutoff.isoformat(),
         "issued_at": now.isoformat(),

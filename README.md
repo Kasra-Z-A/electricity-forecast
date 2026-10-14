@@ -4,7 +4,7 @@ A production ML portfolio project for forecasting Austrian SDAC electricity pric
 before the day-ahead auction: reproducible ingestion, point-in-time features,
 rolling backtests, scheduled batch forecasts, serving and monitored model promotion.
 
-**Status:** resumable price ingestion, weekly baseline forecasts and scoring are
+**Status:** resumable price ingestion, seasonal baseline forecasts and scoring are
 implemented. ENTSO-E authentication and live historical/DST samples passed.
 36 delivery days, including historical transition samples, are cached on the server; the full 2018-onward archive is not yet downloaded.
 Batch collection, official publication, scoring and watchdog jobs are implemented,
@@ -110,11 +110,16 @@ The `job publish` command adds an atomic official publication pointer; the stand
 `forecast` command produces diagnostic artifacts only. Scheduler templates are available
 and are active on the EC2 host.
 
-The baseline matches last week's local clock slot, prefers the same DST fold,
-then falls back to the most recent eligible matching slot within 28 days. Hourly
+The production baseline (`seasonal-daily-v1`) matches the previous day's local clock
+slot, prefers the same DST fold, then falls back to the most recent eligible matching slot within 28 days. Hourly
 source values used for quarter-hour forecasts are labeled `hourly_derived`; they
 are never converted into observed quarter-hour training labels. No eligible history
 means no forecast artifact. Uncertainty intervals are not implemented yet.
+Official forecasts for delivery before October 16, 2026 used the weekly slot
+(`seasonal-weekly-v1`). On the frozen validation windows the prior-day rule had
+28% (hourly, 2021–2023) and 18% (native, April–June 2026) lower MAE, with week-block
+95% intervals clear of zero; see [the backtest](reports/backtest_baselines.json).
+The weekly rule remains the reference for skill.
 
 Scoring pins the current complete actual-price snapshot and retains its checksum;
 missing actuals produce a pending diagnostic. A later revision creates a separate

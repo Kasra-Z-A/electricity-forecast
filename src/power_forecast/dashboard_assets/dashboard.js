@@ -1,4 +1,8 @@
 "use strict";
+const MODEL_NAMES = {
+  "seasonal-daily-v1": "Prior-day baseline",
+  "seasonal-weekly-v1": "Weekly baseline",
+};
 const $ = (id) => document.getElementById(id);
 const fmt = (value) => (value == null ? "—" : value.toFixed(2));
 const time = (value) =>
@@ -96,6 +100,7 @@ function renderCurve() {
   $("hover").textContent = "";
   if (!current) return;
   const facts = [
+    MODEL_NAMES[current.model] || current.model,
     `${current.points.length} delivery intervals`,
     `${current.points.filter((p) => p.fallback).length} fallback slots`,
     `Cutoff ${stamp(current.cutoff_at)}`,
@@ -241,7 +246,10 @@ $("chart").addEventListener("pointermove", (e) => {
   );
 });
 function renderMetrics() {
-  const scored = curves.filter((c) => c.mae != null),
+  // Errors summarise one model: the one behind the newest day in this mode.
+  const model = curves[0]?.model;
+  const scored = curves.filter((c) => c.mae != null && c.model === model),
+    excluded = curves.filter((c) => c.mae != null && c.model !== model).length,
     count = scored.reduce((s, c) => s + c.points.length, 0);
   const mae = count
     ? scored.reduce((s, c) => s + c.mae * c.points.length, 0) / count
@@ -272,7 +280,10 @@ function renderMetrics() {
       ? "Reconstructed history. These results test the pipeline; they are not a held-out model comparison."
       : "Official forecasts only. Errors are computed against the latest complete archived actual prices.";
   $("metric-window").textContent = scored.length
-    ? `${dayLabel(scored.at(-1).date)} – ${dayLabel(scored[0].date)} · Interval-weighted errors · Latest archived actuals; revisions may change these figures.`
+    ? `${MODEL_NAMES[model] || model} · ${dayLabel(scored.at(-1).date)} – ${dayLabel(scored[0].date)} · Interval-weighted errors · Latest archived actuals; revisions may change these figures.` +
+      (excluded
+        ? ` ${excluded} earlier ${excluded === 1 ? "day" : "days"} from another model ${excluded === 1 ? "is" : "are"} not included.`
+        : "")
     : "Metrics appear when complete actual prices are available.";
   const recent = scored.slice(0, 14).reverse(),
     max = Math.max(1, ...recent.map((c) => c.mae));

@@ -11,7 +11,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from statistics import median
 
-from power_forecast.baseline import WEEKLY_LAGS, matching_slot, slot_lookup
+from power_forecast.baseline import DAILY_LAGS, WEEKLY_LAGS, matching_slot, slot_lookup
 from power_forecast.coverage import checkpoints
 from power_forecast.history import load_version, resolution
 from power_forecast.ingestion.entsoe import Price
@@ -65,7 +65,7 @@ def predict(strategy: str, lookup: dict, day: date) -> list[dict] | None:
                 return None
             points.append({"point": found[1].eur_mwh, "fallback": True})
             continue
-        lags = {"weekly": WEEKLY_LAGS, "prior_day": list(range(1, 29))}[strategy]
+        lags = {"weekly": WEEKLY_LAGS, "prior_day": DAILY_LAGS}[strategy]
         found = _first_match(lookup, day, target, lags, newest)
         if found is None:
             return None

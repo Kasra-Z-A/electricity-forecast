@@ -17,7 +17,7 @@ def main() -> None:
     results = []
     for offset in range(8):
         day = date(2026, 9, 6) + timedelta(days=offset)
-        run = forecast(day, Path("data"), replay=True)
+        run = forecast(day, Path("data"), replay=True, model="seasonal-weekly-v1")
         results.append(json.loads(score(run, Path("data")).read_text()))
     summary = {
         "evaluation": "reconstructed replay smoke test, not a held-out model comparison",

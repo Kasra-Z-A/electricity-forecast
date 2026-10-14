@@ -69,13 +69,22 @@ def backfill_prices(start: str, end: str, data_dir: Path = Path("data"), refresh
 
 
 @app.command("forecast")
-def forecast_command(delivery_date: str, data_dir: Path = Path("data"), replay: bool = False):
-    """Save a weekly baseline. --replay explicitly permits reconstructed history."""
-    from power_forecast.baseline import forecast
+def forecast_command(
+    delivery_date: str,
+    data_dir: Path = Path("data"),
+    replay: bool = False,
+    model: str | None = None,
+):
+    """Save a seasonal baseline. --replay explicitly permits reconstructed history."""
+    from power_forecast.baseline import MODELS, PRODUCTION_MODEL, forecast
 
+    model = model or PRODUCTION_MODEL
+    if model not in MODELS:
+        typer.echo(f"Unknown model; choose one of {', '.join(MODELS)}.", err=True)
+        raise typer.Exit(2)
     try:
         with writer_lock(data_dir):
-            output = forecast(date.fromisoformat(delivery_date), data_dir, replay)
+            output = forecast(date.fromisoformat(delivery_date), data_dir, replay, model=model)
     except (ValueError, SourceError, OSError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1)
