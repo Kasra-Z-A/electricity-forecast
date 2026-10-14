@@ -9,38 +9,51 @@ from power_forecast.history import atomic_json, historical_versions, resolution
 from power_forecast.ingestion.entsoe import SourceError
 from power_forecast.timegrid import VIENNA, delivery_grid, forecast_cutoff
 
+# Weekly first; missing slots use the most recent eligible matching slot.
+WEEKLY_LAGS = [7] + [n for n in range(1, 29) if n != 7]
+
+
+def slot_lookup(snapshots) -> dict:
+    """Index (record, rows) pairs by local date, hour and minute."""
+    lookup = {}
+    for record, rows in snapshots:
+        for row in rows:
+            local = row.start.astimezone(VIENNA)
+            lookup.setdefault((local.date(), local.hour, local.minute), []).append((row, record))
+    return lookup
+
+
+def matching_slot(lookup: dict, day: date, target: datetime, lag: int):
+    """The (row, record) for `target`'s local clock slot `lag` days earlier, if archived.
+
+    Hourly source days match on the hour. On DST days the matching fold wins;
+    otherwise the only matching clock slot serves both folds.
+    """
+    local = target.astimezone(VIENNA)
+    source_day = day - timedelta(days=lag)
+    minute = 0 if resolution(source_day) == 60 else local.minute
+    candidates = lookup.get((source_day, local.hour, minute), [])
+    if not candidates:
+        return None
+    return next(
+        (item for item in candidates if item[0].start.astimezone(VIENNA).fold == local.fold),
+        candidates[0],
+    )
+
 
 def forecast(day: date, data_dir: Path, replay: bool = False, now: datetime | None = None) -> Path:
     now = now or datetime.now(UTC)
     cutoff = forecast_cutoff(day)
     if not replay and now < cutoff:
         raise SourceError("Official cutoff has not arrived; use --replay for an exploratory run.")
-    snapshots = historical_versions(data_dir, day, cutoff, replay)
-    lookup = {}
-    for record, rows in snapshots:
-        for row in rows:
-            local = row.start.astimezone(VIENNA)
-            lookup.setdefault((local.date(), local.hour, local.minute), []).append((row, record))
+    lookup = slot_lookup(historical_versions(data_dir, day, cutoff, replay))
     predictions = []
     used = {}
     for target in delivery_grid(day, resolution(day)):
-        local = target.astimezone(VIENNA)
-        # Weekly first; missing slots use the most recent eligible matching slot.
-        offsets = [7] + [n for n in range(1, 29) if n != 7]
         match = None
-        for lag in offsets:
-            source_day = day - timedelta(days=lag)
-            minute = 0 if resolution(source_day) == 60 else local.minute
-            candidates = lookup.get((source_day, local.hour, minute), [])
-            if candidates:
-                match = next(
-                    (
-                        item
-                        for item in candidates
-                        if item[0].start.astimezone(VIENNA).fold == local.fold
-                    ),
-                    candidates[0],
-                )
+        for lag in WEEKLY_LAGS:
+            match = matching_slot(lookup, day, target, lag)
+            if match:
                 break
         if match is None:
             raise SourceError(
