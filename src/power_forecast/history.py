@@ -8,7 +8,14 @@ import tempfile
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-from power_forecast.ingestion.entsoe import Price, SourceError, archive, fetch_prices, parse_prices
+from power_forecast.ingestion.entsoe import (
+    AREA,
+    Price,
+    SourceError,
+    archive,
+    fetch_prices,
+    parse_prices,
+)
 from power_forecast.timegrid import day_bounds, delivery_grid
 
 TRANSITION = date(2025, 10, 1)
@@ -40,17 +47,20 @@ def validate_day(day: date, rows: list[Price]) -> None:
         raise SourceError(f"Incomplete or invalid price grid for {day}.")
 
 
-def ingest_day(day: date, key: str, data_dir: Path, refresh: bool = False) -> dict:
+def ingest_day(
+    day: date, key: str, data_dir: Path, refresh: bool = False, area: str = AREA
+) -> dict:
+    """Ingest one local delivery day. Each bidding zone needs its own `data_dir`."""
     checkpoint = data_dir / "prices" / "days" / f"{day}.json"
     if checkpoint.exists() and not refresh:
         record = json.loads(checkpoint.read_text())
         load_version(data_dir, record)
         return record | {"cached": True}
     start, end = day_bounds(day)
-    payload = fetch_prices(key, start, end)
-    raw = archive(payload, data_dir / "raw" / "entsoe", start, end)
+    payload = fetch_prices(key, start, end, area)
+    raw = archive(payload, data_dir / "raw" / "entsoe", start, end, area)
     retrieved_at = datetime.now(UTC).isoformat()
-    rows = [r for r in parse_prices(payload) if start <= r.start < end]
+    rows = [r for r in parse_prices(payload, area) if start <= r.start < end]
     validate_day(day, rows)
     normalized = {
         "schema_version": 1,

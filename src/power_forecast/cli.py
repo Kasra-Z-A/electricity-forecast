@@ -41,13 +41,29 @@ def ingest_prices(day: str, data_dir: Path = Path("data")):
 
 
 @app.command("backfill-prices")
-def backfill_prices(start: str, end: str, data_dir: Path = Path("data"), refresh: bool = False):
-    """Ingest START inclusive to END exclusive, checkpointing each local day."""
+def backfill_prices(
+    start: str,
+    end: str,
+    data_dir: Path = Path("data"),
+    refresh: bool = False,
+    zone: str = "AT",
+):
+    """Ingest START inclusive to END exclusive, checkpointing each local day.
+
+    Zones other than AT are covariates and default to data/zones/ZONE, never the
+    target archive.
+    """
     from datetime import timedelta
     from time import sleep
 
     from power_forecast.history import ingest_day
+    from power_forecast.ingestion.entsoe import AREAS
 
+    if zone not in AREAS:
+        typer.echo(f"Unknown zone; choose one of {', '.join(AREAS)}.", err=True)
+        raise typer.Exit(2)
+    if zone != "AT" and data_dir == Path("data"):
+        data_dir = Path("data") / "zones" / zone
     try:
         first, stop = date.fromisoformat(start), date.fromisoformat(end)
         if first < date(2018, 10, 1) or stop <= first:
@@ -56,7 +72,7 @@ def backfill_prices(start: str, end: str, data_dir: Path = Path("data"), refresh
         day = first
         while day < stop:
             with writer_lock(data_dir):
-                result = ingest_day(day, key, data_dir, refresh)
+                result = ingest_day(day, key, data_dir, refresh, AREAS[zone])
             typer.echo(
                 f"{day}: {'cached' if result['cached'] else 'downloaded'} ({result['intervals']} intervals)"
             )

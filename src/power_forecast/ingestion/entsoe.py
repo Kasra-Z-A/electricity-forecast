@@ -10,7 +10,8 @@ from pathlib import Path
 import httpx
 from defusedxml import ElementTree as ET
 
-AREA = "10YAT-APG------L"
+AREAS = {"AT": "10YAT-APG------L", "DE-LU": "10Y1001A1001A82H"}
+AREA = AREAS["AT"]
 ENDPOINT = "https://web-api.tp.entsoe.eu/api"
 
 
@@ -27,7 +28,7 @@ class Price:
     revision: str
 
 
-def parse_prices(payload: bytes) -> list[Price]:
+def parse_prices(payload: bytes, area: str = AREA) -> list[Price]:
     import math
 
     try:
@@ -50,7 +51,7 @@ def parse_prices(payload: bytes) -> list[Price]:
             ):
                 raise SourceError("Unexpected price units.")
             for tag in ("in_Domain.mRID", "out_Domain.mRID"):
-                if series.findtext(tag) != AREA:
+                if series.findtext(tag) != area:
                     raise SourceError("Unexpected bidding zone.")
             curve = series.findtext("curveType", "A01")
             if curve not in ("A01", "A03"):
@@ -119,12 +120,12 @@ def parse_prices(payload: bytes) -> list[Price]:
         raise SourceError("Malformed or unsupported ENTSO-E price XML.") from None
 
 
-def fetch_prices(key: str, start: datetime, end: datetime) -> bytes:
+def fetch_prices(key: str, start: datetime, end: datetime, area: str = AREA) -> bytes:
     params = {
         "securityToken": key,
         "documentType": "A44",
-        "in_Domain": AREA,
-        "out_Domain": AREA,
+        "in_Domain": area,
+        "out_Domain": area,
         "periodStart": start.strftime("%Y%m%d%H%M"),
         "periodEnd": end.strftime("%Y%m%d%H%M"),
     }
@@ -145,7 +146,9 @@ def fetch_prices(key: str, start: datetime, end: datetime) -> bytes:
     raise SourceError("ENTSO-E request failed.")
 
 
-def archive(payload: bytes, directory: Path, start: datetime, end: datetime) -> Path:
+def archive(
+    payload: bytes, directory: Path, start: datetime, end: datetime, area: str = AREA
+) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(payload).hexdigest()
     target = directory / f"{digest}.xml"
@@ -158,7 +161,7 @@ def archive(payload: bytes, directory: Path, start: datetime, end: datetime) -> 
     record = {
         "sha256": digest,
         "file": target.name,
-        "area": AREA,
+        "area": area,
         "start": start.isoformat(),
         "end": end.isoformat(),
         "retrieved_at": datetime.now(UTC).isoformat(),

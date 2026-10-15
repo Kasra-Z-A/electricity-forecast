@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 from power_forecast.cli import app
 from power_forecast.ingestion.entsoe import (
     AREA,
+    AREAS,
     SourceError,
     archive,
     fetch_prices,
@@ -166,3 +167,12 @@ def test_identical_duplicate_series_collapsed():
         )
         == 1
     )
+
+
+def test_zone_mismatch_rejected_in_both_directions():
+    with pytest.raises(SourceError, match="bidding zone"):
+        parse_prices(xml(), AREAS["DE-LU"])
+    german = xml().replace(AREA.encode(), AREAS["DE-LU"].encode())
+    assert parse_prices(german, AREAS["DE-LU"])[0].eur_mwh == -12.5
+    with pytest.raises(SourceError, match="bidding zone"):
+        parse_prices(german)
