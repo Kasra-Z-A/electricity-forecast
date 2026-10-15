@@ -173,3 +173,45 @@ def test_scoring_nonzero_errors(tmp_path):
         ingest_day(date(2026, 9, 13), "test", tmp_path)
     result = json.loads(score(run, tmp_path).read_text())
     assert result["mae"] == result["rmse"] == 10
+
+
+def window_payload(days):
+    # One document holding a TimeSeries per day, as ENTSO-E returns for a long window.
+    parts = [payload(day).decode() for day in days]
+    series = [p[p.index("<TimeSeries>") : p.index("</Publication_MarketDocument>")] for p in parts]
+    head = parts[0][: parts[0].index("<TimeSeries>")]
+    return (head + "".join(series) + "</Publication_MarketDocument>").encode()
+
+
+def test_window_ingestion_matches_per_day_ingestion(tmp_path):
+    from power_forecast.history import ingest_window
+
+    days = [date(2025, 9, 29) + timedelta(days=n) for n in range(4)]  # spans 60 -> 15 min
+    for day in days:
+        with patch("power_forecast.history.fetch_prices", return_value=payload(day)):
+            ingest_day(day, "test", tmp_path / "daily")
+    with patch("power_forecast.history.fetch_prices", return_value=window_payload(days)):
+        stored = ingest_window(days, "test", tmp_path / "window")
+        assert len(stored) == 4
+        assert ingest_window(days, "test", tmp_path / "window") == []
+    for day in days:
+        records = [
+            json.loads((tmp_path / kind / "prices/days" / f"{day}.json").read_text())
+            for kind in ("daily", "window")
+        ]
+        daily, window = (
+            load_version(tmp_path / kind, record)[1]
+            for kind, record in zip(("daily", "window"), records)
+        )
+        assert daily == window
+
+
+def test_invalid_window_stores_nothing(tmp_path):
+    from power_forecast.history import ingest_window
+
+    days = [date(2026, 9, 1) + timedelta(days=n) for n in range(3)]
+    broken = window_payload(days[:2])  # third day missing from the response
+    with patch("power_forecast.history.fetch_prices", return_value=broken):
+        with pytest.raises(SourceError, match="2026-09-03"):
+            ingest_window(days, "test", tmp_path)
+    assert not (tmp_path / "prices").exists() and not (tmp_path / "raw").exists()

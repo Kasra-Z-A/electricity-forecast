@@ -47,18 +47,25 @@ def backfill_prices(
     data_dir: Path = Path("data"),
     refresh: bool = False,
     zone: str = "AT",
+    window_days: int = 1,
 ):
     """Ingest START inclusive to END exclusive, checkpointing each local day.
 
     Zones other than AT are covariates and default to data/zones/ZONE, never the
-    target archive.
+    target archive. --window-days N fetches N days per request; a window that fails
+    validation is retried one day at a time.
     """
     from datetime import timedelta
     from time import sleep
 
-    from power_forecast.history import ingest_day
+    from power_forecast.history import ingest_day, ingest_window
     from power_forecast.ingestion.entsoe import AREAS
 
+    if window_days < 1 or (refresh and window_days > 1):
+        typer.echo(
+            "--window-days must be positive and cannot be combined with --refresh.", err=True
+        )
+        raise typer.Exit(2)
     if zone not in AREAS:
         typer.echo(f"Unknown zone; choose one of {', '.join(AREAS)}.", err=True)
         raise typer.Exit(2)
@@ -70,6 +77,21 @@ def backfill_prices(
             raise ValueError("Require 2018-10-01 <= START < END (end is exclusive).")
         key = api_key()
         day = first
+        while window_days > 1 and day < stop:
+            window = [day + timedelta(days=n) for n in range(window_days)]
+            window = [d for d in window if d < stop]
+            try:
+                with writer_lock(data_dir):
+                    stored = ingest_window(window, key, data_dir, AREAS[zone])
+                typer.echo(f"{window[0]}..{window[-1]}: downloaded {len(stored)} days")
+            except SourceError as error:
+                typer.echo(f"{window[0]}..{window[-1]}: {error} Retrying per day.", err=True)
+                for single in window:
+                    with writer_lock(data_dir):
+                        ingest_day(single, key, data_dir, False, AREAS[zone])
+                    sleep(0.5)
+            sleep(0.5)
+            day = window[-1] + timedelta(days=1)
         while day < stop:
             with writer_lock(data_dir):
                 result = ingest_day(day, key, data_dir, refresh, AREAS[zone])

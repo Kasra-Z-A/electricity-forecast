@@ -47,20 +47,7 @@ def validate_day(day: date, rows: list[Price]) -> None:
         raise SourceError(f"Incomplete or invalid price grid for {day}.")
 
 
-def ingest_day(
-    day: date, key: str, data_dir: Path, refresh: bool = False, area: str = AREA
-) -> dict:
-    """Ingest one local delivery day. Each bidding zone needs its own `data_dir`."""
-    checkpoint = data_dir / "prices" / "days" / f"{day}.json"
-    if checkpoint.exists() and not refresh:
-        record = json.loads(checkpoint.read_text())
-        load_version(data_dir, record)
-        return record | {"cached": True}
-    start, end = day_bounds(day)
-    payload = fetch_prices(key, start, end, area)
-    raw = archive(payload, data_dir / "raw" / "entsoe", start, end, area)
-    retrieved_at = datetime.now(UTC).isoformat()
-    rows = [r for r in parse_prices(payload, area) if start <= r.start < end]
+def _store_day(day: date, rows: list[Price], raw: Path, retrieved_at: str, data_dir: Path) -> dict:
     validate_day(day, rows)
     normalized = {
         "schema_version": 1,
@@ -90,8 +77,48 @@ def ingest_day(
         "intervals": len(rows),
     }
     # The checkpoint is advanced only after the complete immutable partition exists.
-    atomic_json(checkpoint, record)
+    atomic_json(data_dir / "prices" / "days" / f"{day}.json", record)
     return record | {"cached": False}
+
+
+def ingest_day(
+    day: date, key: str, data_dir: Path, refresh: bool = False, area: str = AREA
+) -> dict:
+    """Ingest one local delivery day. Each bidding zone needs its own `data_dir`."""
+    checkpoint = data_dir / "prices" / "days" / f"{day}.json"
+    if checkpoint.exists() and not refresh:
+        record = json.loads(checkpoint.read_text())
+        load_version(data_dir, record)
+        return record | {"cached": True}
+    start, end = day_bounds(day)
+    payload = fetch_prices(key, start, end, area)
+    raw = archive(payload, data_dir / "raw" / "entsoe", start, end, area)
+    retrieved_at = datetime.now(UTC).isoformat()
+    rows = [r for r in parse_prices(payload, area) if start <= r.start < end]
+    return _store_day(day, rows, raw, retrieved_at, data_dir)
+
+
+def ingest_window(days: list[date], key: str, data_dir: Path, area: str = AREA) -> list[dict]:
+    """Ingest consecutive local days from one request; checkpointed days are skipped.
+
+    Each day is validated and stored exactly as ingest_day would, with the shared raw
+    response as its source. Any invalid day fails the window before anything is
+    stored, so the caller can fall back to per-day requests.
+    """
+    pending = [d for d in days if not (data_dir / "prices" / "days" / f"{d}.json").exists()]
+    if not pending:
+        return []
+    start, end = day_bounds(pending[0])[0], day_bounds(pending[-1])[1]
+    payload = fetch_prices(key, start, end, area)
+    parsed = parse_prices(payload, area)
+    by_day = {}
+    for day in pending:
+        day_start, day_end = day_bounds(day)
+        by_day[day] = [r for r in parsed if day_start <= r.start < day_end]
+        validate_day(day, by_day[day])
+    raw = archive(payload, data_dir / "raw" / "entsoe", start, end, area)
+    retrieved_at = datetime.now(UTC).isoformat()
+    return [_store_day(day, rows, raw, retrieved_at, data_dir) for day, rows in by_day.items()]
 
 
 def load_version(data_dir: Path, record: dict) -> tuple[dict, list[Price]]:
