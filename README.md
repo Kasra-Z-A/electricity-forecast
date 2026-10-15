@@ -77,6 +77,12 @@ days restores average coverage and gives the lowest P10/P90 pinball loss. Covera
 still varies by time of day: on native data the conformalized interval covers about
 70% at midday and over 90% at night, so a single width does not fit every hour.
 
+**DE-LU ablation (M4).** Adding lagged German prices (D-1 and D-7 slots, previous-day
+mean and AT–DE spread) to the same models and windows changed validation MAE by at
+most 0.08 EUR/MWh, with every 95% interval spanning zero
+([report](reports/ablation_de_lu.json)). The group is not adopted: AT price lags
+already carry what DE-LU adds.
+
 ## Sources
 
 - [ENTSO-E Transparency Platform](https://transparency.entsoe.eu): auction prices

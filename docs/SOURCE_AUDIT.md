@@ -67,7 +67,7 @@ are unknown for everything downloaded today.
 
 | Candidate | Deadline or timing | Class | Use |
 |---|---|---|---|
-| DE-LU day-ahead prices for D-1 and earlier | Same SDAC auction as the AT target; results published around 13:00 on D-2 | Reconstructed, same evidence as AT prices | Ablation now |
+| DE-LU day-ahead prices for D-1 and earlier | Same SDAC auction as the AT target; results published around 13:00 on D-2 | Reconstructed, same evidence as AT prices | Ablated 2026-10-15: no gain, not adopted (reports/ablation_de_lu.json) |
 | DE-LU day-ahead prices for D | Set by the auction that forecasts D | Prohibited | Never |
 | AT day-ahead total load forecast for D | Art. 6(2)(b): no later than two hours before day-ahead gate closure (12:00), so by 10:00 on D-1 | Eligible by deadline with 30 minutes of margin; historical vintages unverified | Collect prospectively and record first-seen time; ablation only with a reconstructed label |
 | AT day-ahead wind and solar forecast for D | Art. 14(2)(d): no later than 18:00 Brussels time on D-1 | Ineligible: the deadline is after the cutoff | Only if prospective collection shows it before 10:30 on every day |
