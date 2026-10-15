@@ -75,7 +75,11 @@ days ([report](reports/backtest_quantiles.json)):
 Raw quantile models are overconfident; conformal calibration on held-back training
 days restores average coverage and gives the lowest P10/P90 pinball loss. Coverage
 still varies by time of day: on native data the conformalized interval covers about
-70% at midday and over 90% at night, so a single width does not fit every hour.
+70% at midday and over 90% at night, so a single width does not fit every hour. Calibrating the conformal offset per local
+hour, a variant designed after seeing these results, narrows the hourly spread of
+native coverage from 68–94% to 79–86% at about 4% more width; for ridge it lowers
+coverage, because 28 held-back days per hour are too few for the tails. The per-hour
+variant needs a fresh forward window before it counts as evidence.
 
 **DE-LU ablation (M4).** Adding lagged German prices (D-1 and D-7 slots, previous-day
 mean and AT–DE spread) to the same models and windows changed validation MAE by at

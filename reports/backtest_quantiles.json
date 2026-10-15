@@ -11,8 +11,18 @@
   "models": {
     "ridge_interval": "ridge point forecast plus the P10/P90 of its errors on the last 28 training days, measured by a fit that had not seen them",
     "lightgbm_quantile_raw": "separate P10/P50/P90 LightGBM quantile models, sorted",
-    "lightgbm_cqr": "the raw quantiles widened or narrowed symmetrically so the held-back 28 days reach 80% coverage (conformalized quantile regression)"
+    "lightgbm_cqr": "the raw quantiles widened or narrowed symmetrically so the held-back 28 days reach 80% coverage (conformalized quantile regression)",
+    "ridge_interval_by_hour": "ridge_interval with errors measured per local hour",
+    "lightgbm_cqr_by_hour": "lightgbm_cqr with the conformal offset set per local hour"
   },
+  "not_preregistered": {
+    "kinds": [
+      "ridge_interval_by_hour",
+      "lightgbm_cqr_by_hour"
+    ],
+    "reason": "added after the first run showed coverage near 70% at midday and over 90% at night; the validation fold had been seen when they were designed"
+  },
+  "ordering_note": "ridge offsets are clamped so P10 <= point <= P90 when a group's errors are all one-signed",
   "ordering_rule": "quantiles are sorted per interval; raw_crossing_rate is measured first",
   "eras": {
     "hourly": {
@@ -97,6 +107,84 @@
             "23": 0.865
           },
           "worst_hour_coverage": 0.762
+        },
+        "ridge_interval_by_hour": {
+          "intervals": 26280,
+          "pinball": {
+            "p10": 6.985,
+            "p50": 12.65,
+            "p90": 6.344
+          },
+          "nominal_coverage": 0.8,
+          "coverage": 0.719,
+          "mean_width": 71.307,
+          "raw_crossing_rate": 0,
+          "coverage_by_local_hour": {
+            "0": 0.72,
+            "1": 0.713,
+            "2": 0.705,
+            "3": 0.717,
+            "4": 0.721,
+            "5": 0.719,
+            "6": 0.724,
+            "7": 0.731,
+            "8": 0.731,
+            "9": 0.723,
+            "10": 0.709,
+            "11": 0.719,
+            "12": 0.724,
+            "13": 0.713,
+            "14": 0.715,
+            "15": 0.714,
+            "16": 0.712,
+            "17": 0.705,
+            "18": 0.702,
+            "19": 0.725,
+            "20": 0.727,
+            "21": 0.723,
+            "22": 0.729,
+            "23": 0.732
+          },
+          "worst_hour_coverage": 0.702
+        },
+        "lightgbm_cqr_by_hour": {
+          "intervals": 26280,
+          "pinball": {
+            "p10": 6.646,
+            "p50": 12.68,
+            "p90": 6.315
+          },
+          "nominal_coverage": 0.8,
+          "coverage": 0.825,
+          "mean_width": 96.104,
+          "raw_crossing_rate": 0.014,
+          "coverage_by_local_hour": {
+            "0": 0.817,
+            "1": 0.82,
+            "2": 0.816,
+            "3": 0.831,
+            "4": 0.82,
+            "5": 0.813,
+            "6": 0.841,
+            "7": 0.836,
+            "8": 0.841,
+            "9": 0.821,
+            "10": 0.824,
+            "11": 0.831,
+            "12": 0.83,
+            "13": 0.831,
+            "14": 0.825,
+            "15": 0.821,
+            "16": 0.828,
+            "17": 0.818,
+            "18": 0.822,
+            "19": 0.824,
+            "20": 0.82,
+            "21": 0.817,
+            "22": 0.832,
+            "23": 0.828
+          },
+          "worst_hour_coverage": 0.813
         },
         "lightgbm_quantile_raw": {
           "intervals": 26280,
@@ -605,6 +693,84 @@
             "23": 0.934
           },
           "worst_hour_coverage": 0.684
+        },
+        "ridge_interval_by_hour": {
+          "intervals": 8736,
+          "pinball": {
+            "p10": 7.875,
+            "p50": 13.247,
+            "p90": 6.98
+          },
+          "nominal_coverage": 0.8,
+          "coverage": 0.738,
+          "mean_width": 78.197,
+          "raw_crossing_rate": 0,
+          "coverage_by_local_hour": {
+            "0": 0.698,
+            "1": 0.692,
+            "2": 0.736,
+            "3": 0.739,
+            "4": 0.761,
+            "5": 0.758,
+            "6": 0.753,
+            "7": 0.712,
+            "8": 0.794,
+            "9": 0.786,
+            "10": 0.81,
+            "11": 0.764,
+            "12": 0.764,
+            "13": 0.772,
+            "14": 0.813,
+            "15": 0.758,
+            "16": 0.758,
+            "17": 0.717,
+            "18": 0.725,
+            "19": 0.67,
+            "20": 0.618,
+            "21": 0.665,
+            "22": 0.692,
+            "23": 0.753
+          },
+          "worst_hour_coverage": 0.618
+        },
+        "lightgbm_cqr_by_hour": {
+          "intervals": 8736,
+          "pinball": {
+            "p10": 7.431,
+            "p50": 13.557,
+            "p90": 6.901
+          },
+          "nominal_coverage": 0.8,
+          "coverage": 0.83,
+          "mean_width": 91.555,
+          "raw_crossing_rate": 0.069,
+          "coverage_by_local_hour": {
+            "0": 0.81,
+            "1": 0.827,
+            "2": 0.843,
+            "3": 0.838,
+            "4": 0.852,
+            "5": 0.849,
+            "6": 0.816,
+            "7": 0.816,
+            "8": 0.835,
+            "9": 0.827,
+            "10": 0.827,
+            "11": 0.86,
+            "12": 0.849,
+            "13": 0.854,
+            "14": 0.813,
+            "15": 0.816,
+            "16": 0.841,
+            "17": 0.854,
+            "18": 0.816,
+            "19": 0.794,
+            "20": 0.797,
+            "21": 0.832,
+            "22": 0.835,
+            "23": 0.83
+          },
+          "worst_hour_coverage": 0.794
         },
         "lightgbm_quantile_raw": {
           "intervals": 8736,
