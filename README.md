@@ -63,6 +63,20 @@ intervals clear of zero. LightGBM does not beat ridge, and on native data its
 interval against prior-day crosses zero. Native validation is only 91 days.
 Inputs are archived versions retrieved in September 2026, not past vintages.
 
+**Uncertainty (M4).** P10/P90 ranges, nominal 80% coverage, on the same validation
+days ([report](reports/backtest_quantiles.json)):
+
+| | Hourly coverage | Hourly width | Native coverage | Native width |
+|---|---|---|---|---|
+| Ridge + past-error interval | 75.5% | 77.0 | 76.6% | 80.4 |
+| LightGBM quantiles, raw | 59.8% | 52.6 | 52.0% | 46.4 |
+| LightGBM quantiles, conformalized | 80.4% | 87.5 | 82.8% | 88.3 |
+
+Raw quantile models are overconfident; conformal calibration on held-back training
+days restores average coverage and gives the lowest P10/P90 pinball loss. Coverage
+still varies by time of day: on native data the conformalized interval covers about
+70% at midday and over 90% at night, so a single width does not fit every hour.
+
 ## Sources
 
 - [ENTSO-E Transparency Platform](https://transparency.entsoe.eu): auction prices
@@ -127,6 +141,7 @@ uv run python experiments/coverage_report.py
 uv run python experiments/freeze_splits.py
 uv run python experiments/backtest_baselines.py
 uv run --group research python experiments/backtest_models.py  # about 10 minutes
+uv run --group research python experiments/backtest_quantiles.py  # about 20 minutes
 ```
 
 Without `--replay`, a forecast runs only after its 10:30 Vienna cutoff, using input

@@ -19,7 +19,6 @@ from power_forecast.splits import rolling_origins
 from power_forecast.timegrid import VIENNA
 
 CATEGORICAL_COLUMNS = [FEATURES.index(name) for name in CATEGORICAL]
-NUMERIC_COLUMNS = [i for i in range(len(FEATURES)) if i not in CATEGORICAL_COLUMNS]
 
 
 def build(kind: str, params: dict, seed: int):
@@ -27,8 +26,9 @@ def build(kind: str, params: dict, seed: int):
         encode = ColumnTransformer(
             [
                 ("calendar", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL_COLUMNS),
-                ("numeric", StandardScaler(), NUMERIC_COLUMNS),
-            ]
+            ],
+            # Every other column, core or covariate, is scaled on training rows.
+            remainder=StandardScaler(),
         )
         return make_pipeline(encode, Ridge(**params))
     if kind == "lightgbm":
@@ -41,14 +41,18 @@ def build(kind: str, params: dict, seed: int):
 class FeatureCache:
     """Feature rows per day; they depend only on the day's own cutoff, not the origin."""
 
-    def __init__(self, archive: dict):
+    def __init__(self, archive: dict, covariates: dict | None = None):
         self.archive = archive
         self.lookup = slot_lookup(archive.values())
+        self.covariates = {
+            name: (values, slot_lookup(values.values()))
+            for name, values in (covariates or {}).items()
+        }
         self.rows = {}
 
     def __call__(self, day: date):
         if day not in self.rows:
-            self.rows[day] = day_features(self.archive, self.lookup, day)
+            self.rows[day] = day_features(self.archive, self.lookup, day, self.covariates)
         return self.rows[day]
 
     def matrix(self, first: date, last: date) -> tuple[np.ndarray, np.ndarray]:
@@ -94,5 +98,110 @@ def backtest_model(
                         ],
                     }
                 )
+            day += timedelta(days=1)
+    return results
+
+
+def _quantile_models(features, targets, config: dict) -> list:
+    return [
+        build(
+            "lightgbm",
+            config["models"]["lightgbm"] | {"objective": "quantile", "alpha": q},
+            config["seed"],
+        ).fit(features, targets)
+        for q in config["quantiles"]
+    ]
+
+
+def _predict_quantiles(models: list, features) -> np.ndarray:
+    return np.column_stack([model.predict(features) for model in models])
+
+
+def probabilistic_forecaster(kind: str, cache: FeatureCache, train: tuple, config: dict):
+    """Fit on one training window; return a function from feature rows to P10/P50/P90.
+
+    The last `calibration_days` of the window are held back to measure errors the
+    model makes on days it has not seen; the final models are refitted on the whole
+    window. Each returned row also says whether the raw quantiles crossed.
+    """
+    first, last = train
+    calibration_first = last - timedelta(days=config["calibration_days"] - 1)
+    fit_x, fit_y = cache.matrix(first, calibration_first - timedelta(days=1))
+    cal_x, cal_y = cache.matrix(calibration_first, last)
+    all_x, all_y = cache.matrix(first, last)
+    low, _, high = config["quantiles"]
+    if kind == "ridge_interval":
+        held_back = build("ridge", config["models"]["ridge"], config["seed"]).fit(fit_x, fit_y)
+        residuals = cal_y - held_back.predict(cal_x)
+        offsets = np.quantile(residuals, [low, high])
+        final = build("ridge", config["models"]["ridge"], config["seed"]).fit(all_x, all_y)
+
+        def predict(rows):
+            point = final.predict(rows)
+            return np.column_stack([point + offsets[0], point, point + offsets[1]]), np.zeros(
+                len(point), dtype=bool
+            )
+
+        return predict
+    if kind == "lightgbm_cqr":
+        held_back = np.sort(_predict_quantiles(_quantile_models(fit_x, fit_y, config), cal_x))
+        scores = np.maximum(held_back[:, 0] - cal_y, cal_y - held_back[:, 2])
+        # Finite-sample conformal quantile for nominal (high - low) coverage. It may be
+        # negative, narrowing an interval that over-covered on the held-back days.
+        level = min(1.0, (high - low) * (1 + 1 / len(scores)))
+        widen = float(np.quantile(scores, level, method="higher"))
+        final = _quantile_models(all_x, all_y, config)
+
+        def predict(rows):
+            raw = _predict_quantiles(final, rows)
+            crossed = (raw[:, 0] > raw[:, 1]) | (raw[:, 1] > raw[:, 2])
+            ordered = np.sort(raw, axis=1)
+            ordered[:, 0] -= widen
+            ordered[:, 2] += widen
+            return ordered, crossed
+
+        # The raw, ordered interval is the calibrated one moved back by this offset.
+        predict.offset = widen
+        return predict
+    raise ValueError(f"Unknown probabilistic model {kind!r}.")
+
+
+def backtest_probabilistic(
+    cache: FeatureCache, splits: dict, era: str, fold: str, kind: str, config: dict
+) -> list[dict]:
+    """Like backtest_model, with P10/P50/P90 per interval; `error` is P50 minus actual."""
+    results = []
+    window = config["windows"][era]
+    for origin in rolling_origins(splits, era, fold, window):
+        train = tuple(date.fromisoformat(d) for d in origin["train"])
+        predict = probabilistic_forecaster(kind, cache, train, config)
+        offset = getattr(predict, "offset", 0.0)
+        day, last = (date.fromisoformat(d) for d in origin["evaluate"])
+        while day <= last:
+            rows = cache(day)
+            if rows is None:
+                results.append({"day": day, "intervals": None})
+                day += timedelta(days=1)
+                continue
+            quantiles, crossed = predict(np.array(rows, dtype=float))
+            results.append(
+                {
+                    "day": day,
+                    "intervals": [
+                        {
+                            "local": actual.start.astimezone(VIENNA),
+                            "actual": actual.eur_mwh,
+                            "error": float(q[1]) - actual.eur_mwh,
+                            "fallback": False,
+                            "quantiles": [float(v) for v in q],
+                            "crossed": bool(c),
+                            "conformal_offset": offset,
+                        }
+                        for q, c, actual in zip(
+                            quantiles, crossed, cache.archive[day][1], strict=True
+                        )
+                    ],
+                }
+            )
             day += timedelta(days=1)
     return results

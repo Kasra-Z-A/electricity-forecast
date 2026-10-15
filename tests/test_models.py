@@ -1,9 +1,7 @@
 from datetime import date, timedelta
 
 import pytest
-from test_backtest import seed_days
 
-from power_forecast.backtest import load_archive
 from power_forecast.ingestion.entsoe import Price
 from power_forecast.models import FeatureCache, backtest_model
 
@@ -24,12 +22,6 @@ CONFIG = {
         "lightgbm": {"objective": "l1", "n_estimators": 20, "min_child_samples": 20},
     },
 }
-
-
-@pytest.fixture
-def archive(tmp_path):
-    seed_days(tmp_path, date(2026, 7, 10), date(2026, 9, 11))
-    return load_archive(tmp_path)
 
 
 def run(archive, kind, window="expanding"):

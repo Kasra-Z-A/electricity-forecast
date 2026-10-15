@@ -33,6 +33,14 @@ FEATURES = (
     "prev_max",
     "week_mean",
 )
+# Optional covariate groups, each added alone in an ablation (PLAN.md section 7).
+COVARIATES = {
+    "de_lu": ("de_lag_1", "de_lag_7", "de_prev_mean", "spread_prev_mean"),
+}
+
+
+def feature_names(groups: tuple = ()) -> tuple:
+    return FEATURES + tuple(name for group in groups for name in COVARIATES[group])
 
 
 def easter(year: int) -> date:
@@ -61,8 +69,15 @@ def _day_prices(archive: dict, day: date) -> list[float]:
     return [row.eur_mwh for row in archive[day][1]] if day in archive else []
 
 
-def day_features(archive: dict, lookup: dict, day: date) -> list[list[float]] | None:
-    """One feature row per delivery interval of `day`, or None without eligible history."""
+def day_features(
+    archive: dict, lookup: dict, day: date, covariates: dict | None = None
+) -> list[list[float]] | None:
+    """One feature row per delivery interval of `day`, or None without eligible history.
+
+    `covariates` maps a group name to its own (archive, lookup). A missing DE-LU slot
+    takes the matching AT value, i.e. a zero spread, never a fitted imputation.
+    """
+    covariates = covariates or {}
     newest = last_label_day(day)
     previous = _day_prices(archive, newest)
     week = [p for n in range(7) for p in _day_prices(archive, newest - timedelta(days=n))]
@@ -75,16 +90,29 @@ def day_features(archive: dict, lookup: dict, day: date) -> list[list[float]] | 
     for target in delivery_grid(day, resolution(day)):
         local = target.astimezone(VIENNA)
 
-        def lagged(lag):
+        def lagged(lag, source=lookup):
             if day - timedelta(days=lag) > newest:
                 return None
-            match = matching_slot(lookup, day, target, lag)
+            match = matching_slot(source, day, target, lag)
             return match[0].eur_mwh if match else None
 
         base = next((v for lag in DAILY_LAGS if (v := lagged(lag)) is not None), None)
         if base is None:
             return None
         lags = [lagged(lag) for lag in LAGS]
+        extra = []
+        if "de_lu" in covariates:
+            de_archive, de_lookup = covariates["de_lu"]
+            de_previous = _day_prices(de_archive, newest)
+            at_1 = lags[0] if lags[0] is not None else base
+            at_7 = lags[2] if lags[2] is not None else base
+            de_1, de_7 = lagged(1, de_lookup), lagged(7, de_lookup)
+            extra = [
+                at_1 if de_1 is None else de_1,
+                at_7 if de_7 is None else de_7,
+                mean(de_previous) if de_previous else mean(previous),
+                mean(previous) - mean(de_previous) if de_previous else 0.0,
+            ]
         rows.append(
             [
                 local.hour,
@@ -101,6 +129,7 @@ def day_features(archive: dict, lookup: dict, day: date) -> list[list[float]] | 
                 min(previous),
                 max(previous),
                 mean(week),
+                *extra,
             ]
         )
     return rows

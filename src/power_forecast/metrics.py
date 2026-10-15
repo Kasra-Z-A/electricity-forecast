@@ -101,3 +101,41 @@ def paired_comparison(
         "daily_mae_difference": mean(d for block in blocks for d in block),
         "difference_95": [quantile(draws, 0.025), quantile(draws, 0.975)],
     }
+
+
+def pinball(actual: float, predicted: float, q: float) -> float:
+    difference = actual - predicted
+    return max(q * difference, (q - 1) * difference)
+
+
+def probabilistic_summary(days: list[dict], levels: tuple = (0.1, 0.5, 0.9)) -> dict:
+    """Pinball loss per quantile, central-interval coverage and width, crossing rate.
+
+    Coverage is reported overall and by local hour, because a well-calibrated
+    average can hide hours where the interval is much too narrow.
+    """
+    items = _errors([day for day in days if day["intervals"]])
+    if not items:
+        return {"intervals": 0}
+    low, high = levels[0], levels[-1]
+
+    def covered(item):
+        return item["quantiles"][0] <= item["actual"] <= item["quantiles"][-1]
+
+    by_hour = defaultdict(list)
+    for item in items:
+        by_hour[item["local"].hour].append(covered(item))
+    hourly = {hour: mean(values) for hour, values in sorted(by_hour.items())}
+    return {
+        "intervals": len(items),
+        "pinball": {
+            f"p{round(q * 100)}": mean(pinball(i["actual"], i["quantiles"][n], q) for i in items)
+            for n, q in enumerate(levels)
+        },
+        "nominal_coverage": round(high - low, 6),
+        "coverage": mean(covered(i) for i in items),
+        "mean_width": mean(i["quantiles"][-1] - i["quantiles"][0] for i in items),
+        "raw_crossing_rate": mean(i.get("crossed", False) for i in items),
+        "coverage_by_local_hour": hourly,
+        "worst_hour_coverage": min(hourly.values()),
+    }
