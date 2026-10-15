@@ -72,10 +72,17 @@ are unknown for everything downloaded today.
 | AT day-ahead total load forecast for D | Art. 6(2)(b): no later than two hours before day-ahead gate closure (12:00), so by 10:00 on D-1 | Eligible by deadline with 30 minutes of margin; historical vintages unverified | Collect prospectively and record first-seen time; ablation only with a reconstructed label |
 | AT day-ahead wind and solar forecast for D | Art. 14(2)(d): no later than 18:00 Brussels time on D-1 | Ineligible: the deadline is after the cutoff | Only if prospective collection shows it before 10:30 on every day |
 | AT aggregated generation forecast for D | Art. 14(2)(c): no later than 18:00 on D-1 | Ineligible | None |
-| Weather (Open-Meteo) | Depends on model run and archive behavior; the Historical Forecast API stitches runs | Not yet audited | Forward-only challenger until single-run availability is established |
+| Weather, ECMWF IFS HRES 00 UTC run of D-1 (Open-Meteo Single Runs API) | Run is typically available 4–6 hours after initialization, i.e. before the 08:30/09:30 UTC cutoff; publication time is not recorded | Reconstructed, native era only: archived from 2024-03-14, early runs labelled IFS Cycle 49R1 hindcasts, model cycle 50R1 from 2026-05-12 | Ablation on native folds with that label; production only after forward archiving shows it before cutoff |
+| Weather, other models | Single runs archived only from 2026-04-02 | Too short to train | None yet |
 
 The deadlines are quoted from Commission Regulation (EU) No 543/2013, Articles 6(2)(b),
 14(2)(c) and 14(2)(d) (consolidated text; Brussels time per Article 2(31)).
+
+Weather caveats: the Historical Forecast API stitches the early hours of successive
+runs, so it does not represent one forecast available at a fixed cutoff and is not
+used. Single runs before 2024-03-14 do not exist, so the hourly research era
+(2018–2025) has no weather at all. The 2026-05-12 cycle change falls inside the native
+validation fold. Source: open-meteo.com/en/docs/single-runs-api, read 2026-10-15.
 
 DE-LU prices are stored as a separate archive under `data/zones/DE-LU` with the same
 immutable versions and checksums as AT, through `backfill-prices --zone DE-LU`. They

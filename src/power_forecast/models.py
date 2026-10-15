@@ -117,51 +117,84 @@ def _predict_quantiles(models: list, features) -> np.ndarray:
     return np.column_stack([model.predict(features) for model in models])
 
 
+HOUR = FEATURES.index("hour")
+# A calibration group thinner than this uses the all-hours value instead.
+MIN_GROUP = 20
+
+
+def _grouped(cal_keys, values, statistic, keys):
+    """`statistic` of `values` per calibration group, looked up for each of `keys`."""
+    overall = statistic(values)
+    table = {
+        key: statistic(values[cal_keys == key])
+        for key in np.unique(cal_keys)
+        if np.count_nonzero(cal_keys == key) >= MIN_GROUP
+    }
+    return np.array([table.get(key, overall) for key in keys])
+
+
 def probabilistic_forecaster(kind: str, cache: FeatureCache, train: tuple, config: dict):
     """Fit on one training window; return a function from feature rows to P10/P50/P90.
 
     The last `calibration_days` of the window are held back to measure errors the
     model makes on days it has not seen; the final models are refitted on the whole
-    window. Each returned row also says whether the raw quantiles crossed.
+    window. A `_by_hour` kind measures those errors separately per local hour.
+    The returned function gives sorted quantiles, whether the raw quantiles crossed,
+    and the conformal offset applied to each row.
     """
+    base, by_hour = kind.removesuffix("_by_hour"), kind.endswith("_by_hour")
     first, last = train
     calibration_first = last - timedelta(days=config["calibration_days"] - 1)
     fit_x, fit_y = cache.matrix(first, calibration_first - timedelta(days=1))
     cal_x, cal_y = cache.matrix(calibration_first, last)
     all_x, all_y = cache.matrix(first, last)
     low, _, high = config["quantiles"]
-    if kind == "ridge_interval":
+
+    def groups(rows):
+        return rows[:, HOUR] if by_hour else np.zeros(len(rows))
+
+    if base == "ridge_interval":
         held_back = build("ridge", config["models"]["ridge"], config["seed"]).fit(fit_x, fit_y)
         residuals = cal_y - held_back.predict(cal_x)
-        offsets = np.quantile(residuals, [low, high])
         final = build("ridge", config["models"]["ridge"], config["seed"]).fit(all_x, all_y)
 
         def predict(rows):
             point = final.predict(rows)
-            return np.column_stack([point + offsets[0], point, point + offsets[1]]), np.zeros(
-                len(point), dtype=bool
+            offsets = _grouped(
+                groups(cal_x), residuals, lambda v: np.quantile(v, [low, high]), groups(rows)
             )
+            # If a group's errors are all one-signed, clamp so the point stays the median.
+            quantiles = np.column_stack(
+                [
+                    point + np.minimum(offsets[:, 0], 0),
+                    point,
+                    point + np.maximum(offsets[:, 1], 0),
+                ]
+            )
+            return quantiles, np.zeros(len(point), dtype=bool), np.zeros(len(point))
 
         return predict
-    if kind == "lightgbm_cqr":
+    if base == "lightgbm_cqr":
         held_back = np.sort(_predict_quantiles(_quantile_models(fit_x, fit_y, config), cal_x))
         scores = np.maximum(held_back[:, 0] - cal_y, cal_y - held_back[:, 2])
-        # Finite-sample conformal quantile for nominal (high - low) coverage. It may be
-        # negative, narrowing an interval that over-covered on the held-back days.
-        level = min(1.0, (high - low) * (1 + 1 / len(scores)))
-        widen = float(np.quantile(scores, level, method="higher"))
+
+        def conformal(values):
+            # Finite-sample conformal quantile for nominal (high - low) coverage. It may
+            # be negative, narrowing an interval that over-covered on held-back days.
+            level = min(1.0, (high - low) * (1 + 1 / len(values)))
+            return float(np.quantile(values, level, method="higher"))
+
         final = _quantile_models(all_x, all_y, config)
 
         def predict(rows):
             raw = _predict_quantiles(final, rows)
             crossed = (raw[:, 0] > raw[:, 1]) | (raw[:, 1] > raw[:, 2])
+            widen = _grouped(groups(cal_x), scores, conformal, groups(rows))
             ordered = np.sort(raw, axis=1)
             ordered[:, 0] -= widen
             ordered[:, 2] += widen
-            return ordered, crossed
+            return ordered, crossed, widen
 
-        # The raw, ordered interval is the calibrated one moved back by this offset.
-        predict.offset = widen
         return predict
     raise ValueError(f"Unknown probabilistic model {kind!r}.")
 
@@ -175,7 +208,6 @@ def backtest_probabilistic(
     for origin in rolling_origins(splits, era, fold, window):
         train = tuple(date.fromisoformat(d) for d in origin["train"])
         predict = probabilistic_forecaster(kind, cache, train, config)
-        offset = getattr(predict, "offset", 0.0)
         day, last = (date.fromisoformat(d) for d in origin["evaluate"])
         while day <= last:
             rows = cache(day)
@@ -183,7 +215,7 @@ def backtest_probabilistic(
                 results.append({"day": day, "intervals": None})
                 day += timedelta(days=1)
                 continue
-            quantiles, crossed = predict(np.array(rows, dtype=float))
+            quantiles, crossed, offsets = predict(np.array(rows, dtype=float))
             results.append(
                 {
                     "day": day,
@@ -195,10 +227,10 @@ def backtest_probabilistic(
                             "fallback": False,
                             "quantiles": [float(v) for v in q],
                             "crossed": bool(c),
-                            "conformal_offset": offset,
+                            "conformal_offset": float(offset),
                         }
-                        for q, c, actual in zip(
-                            quantiles, crossed, cache.archive[day][1], strict=True
+                        for q, c, offset, actual in zip(
+                            quantiles, crossed, offsets, cache.archive[day][1], strict=True
                         )
                     ],
                 }

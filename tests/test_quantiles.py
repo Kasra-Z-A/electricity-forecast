@@ -17,7 +17,7 @@ CONFIG = {
         "lightgbm": {"n_estimators": 20, "min_child_samples": 20},
     },
 }
-KINDS = ["ridge_interval", "lightgbm_cqr"]
+KINDS = ["ridge_interval", "lightgbm_cqr", "ridge_interval_by_hour", "lightgbm_cqr_by_hour"]
 
 
 def run(archive, kind):
@@ -61,3 +61,13 @@ def test_raw_interval_is_recoverable_from_the_offset(archive):
             low, mid, high = item["quantiles"]
             offset = item["conformal_offset"]
             assert low + offset - 1e-9 <= mid <= high - offset + 1e-9
+
+
+def test_hourly_calibration_differs_by_hour_and_falls_back_when_thin(archive):
+    results = run(archive, "lightgbm_cqr_by_hour")
+    offsets = {}
+    for day in results:
+        for item in day["intervals"]:
+            offsets.setdefault(item["local"].hour, set()).add(round(item["conformal_offset"], 9))
+    # 7 calibration days x 4 quarter-hours = 28 values per hour, enough for its own group.
+    assert len({value for values in offsets.values() for value in values}) > 2

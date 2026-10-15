@@ -19,6 +19,8 @@ from power_forecast.models import FeatureCache, backtest_probabilistic
 from power_forecast.splits import load_splits
 
 KINDS = ["ridge_interval", "lightgbm_cqr"]
+# Added on 2026-10-15 after the first run showed midday under-coverage; not preregistered.
+LATER_KINDS = ["ridge_interval_by_hour", "lightgbm_cqr_by_hour"]
 
 
 def raw_view(results: list[dict]) -> list[dict]:
@@ -61,7 +63,7 @@ def main() -> None:
         reference = backtest(archive, days, ["prior_day"])["prior_day"]
         results = {
             kind: backtest_probabilistic(cache, splits, era, "validation", kind, config)
-            for kind in KINDS
+            for kind in KINDS + LATER_KINDS
         }
         results["lightgbm_quantile_raw"] = raw_view(results["lightgbm_cqr"])
         eras[era] = {
@@ -94,7 +96,16 @@ def main() -> None:
             "lightgbm_quantile_raw": "separate P10/P50/P90 LightGBM quantile models, sorted",
             "lightgbm_cqr": "the raw quantiles widened or narrowed symmetrically so the "
             "held-back 28 days reach 80% coverage (conformalized quantile regression)",
+            "ridge_interval_by_hour": "ridge_interval with errors measured per local hour",
+            "lightgbm_cqr_by_hour": "lightgbm_cqr with the conformal offset set per local hour",
         },
+        "not_preregistered": {
+            "kinds": LATER_KINDS,
+            "reason": "added after the first run showed coverage near 70% at midday and over "
+            "90% at night; the validation fold had been seen when they were designed",
+        },
+        "ordering_note": "ridge offsets are clamped so P10 <= point <= P90 when a group's "
+        "errors are all one-signed",
         "ordering_rule": "quantiles are sorted per interval; raw_crossing_rate is measured first",
         "eras": rounded(eras),
         "caveats": [
