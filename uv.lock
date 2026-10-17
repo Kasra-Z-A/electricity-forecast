@@ -273,6 +273,7 @@ source = { editable = "." }
 dependencies = [
     { name = "defusedxml" },
     { name = "httpx" },
+    { name = "numpy" },
     { name = "python-dotenv" },
     { name = "typer" },
 ]
@@ -284,7 +285,6 @@ dev = [
 ]
 research = [
     { name = "lightgbm" },
-    { name = "numpy" },
     { name = "scikit-learn" },
 ]
 
@@ -292,6 +292,7 @@ research = [
 requires-dist = [
     { name = "defusedxml", specifier = ">=0.7.1" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "numpy", specifier = ">=2.5.4" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "typer", specifier = ">=0.27.2" },
 ]
@@ -303,7 +304,6 @@ dev = [
 ]
 research = [
     { name = "lightgbm", specifier = ">=4.7.0" },
-    { name = "numpy", specifier = ">=2.5.4" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
 ]
 
