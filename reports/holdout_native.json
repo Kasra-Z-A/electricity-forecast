@@ -1,0 +1,608 @@
+{
+  "evaluation": "single consultation of the native holdout, weekly-refit rolling origins",
+  "candidate": {
+    "_comment": "First learned candidate for M6, frozen 2026-10-17 before the native holdout was consulted. Chosen on validation only (reports/backtest_models.json): ridge with core features beat LightGBM (26.49 vs 27.20 EUR/MWh) and the 180-day window edged the expanding one (26.49 vs 26.56). Settings are those of configs/backtest_models.json; nothing here was tuned on the holdout.",
+    "name": "ridge-core-180-v1",
+    "kind": "ridge",
+    "params": {
+      "alpha": 1.0
+    },
+    "features": "core",
+    "training_window": 180,
+    "seed": 0
+  },
+  "candidate_sha256": "a0956d5455babda9a829ac04a938c7e79bc15c2c99314f14e50d8d839179efd7",
+  "splits_sha256": "b0c184c2644e31112b4730f46b10e819f59e3865283d88f21b89e217d2ff05f2",
+  "lock_sha256": "d2f632f9bd7a832d6d5b43c2461cf75e96217e162608a1056fb3b002f5ea5d9e",
+  "packages": {
+    "numpy": "2.5.4",
+    "scikit-learn": "1.9.1"
+  },
+  "features": [
+    "hour",
+    "weekday",
+    "quarter",
+    "weekend",
+    "holiday",
+    "doy_sin",
+    "doy_cos",
+    "utc_offset",
+    "base",
+    "lag_1",
+    "lag_2",
+    "lag_7",
+    "lag_14",
+    "prev_mean",
+    "prev_min",
+    "prev_max",
+    "week_mean"
+  ],
+  "first": "2026-07-01",
+  "last": "2026-08-31",
+  "models": {
+    "weekly": {
+      "days": 62,
+      "unavailable_days": 0,
+      "intervals": 5952,
+      "mae": 27.871,
+      "rmse": 41.869,
+      "daily_mean_mae": 27.871,
+      "fallback_rate": 0,
+      "by_local_hour": {
+        "0": {
+          "intervals": 248,
+          "mae": 16.662,
+          "rmse": 20.792
+        },
+        "1": {
+          "intervals": 248,
+          "mae": 15.135,
+          "rmse": 19.096
+        },
+        "2": {
+          "intervals": 248,
+          "mae": 15.521,
+          "rmse": 19.621
+        },
+        "3": {
+          "intervals": 248,
+          "mae": 15.468,
+          "rmse": 19.707
+        },
+        "4": {
+          "intervals": 248,
+          "mae": 16.533,
+          "rmse": 21.542
+        },
+        "5": {
+          "intervals": 248,
+          "mae": 16.805,
+          "rmse": 20.43
+        },
+        "6": {
+          "intervals": 248,
+          "mae": 18.181,
+          "rmse": 22.29
+        },
+        "7": {
+          "intervals": 248,
+          "mae": 21.292,
+          "rmse": 27.043
+        },
+        "8": {
+          "intervals": 248,
+          "mae": 26.956,
+          "rmse": 35.084
+        },
+        "9": {
+          "intervals": 248,
+          "mae": 33.179,
+          "rmse": 44.873
+        },
+        "10": {
+          "intervals": 248,
+          "mae": 36.496,
+          "rmse": 49.504
+        },
+        "11": {
+          "intervals": 248,
+          "mae": 37.313,
+          "rmse": 48.786
+        },
+        "12": {
+          "intervals": 248,
+          "mae": 39.386,
+          "rmse": 50.347
+        },
+        "13": {
+          "intervals": 248,
+          "mae": 37.956,
+          "rmse": 48.578
+        },
+        "14": {
+          "intervals": 248,
+          "mae": 36.44,
+          "rmse": 46.835
+        },
+        "15": {
+          "intervals": 248,
+          "mae": 35.871,
+          "rmse": 46.284
+        },
+        "16": {
+          "intervals": 248,
+          "mae": 38.351,
+          "rmse": 49.563
+        },
+        "17": {
+          "intervals": 248,
+          "mae": 33.879,
+          "rmse": 43.014
+        },
+        "18": {
+          "intervals": 248,
+          "mae": 26.168,
+          "rmse": 35.025
+        },
+        "19": {
+          "intervals": 248,
+          "mae": 36.352,
+          "rmse": 61.359
+        },
+        "20": {
+          "intervals": 248,
+          "mae": 40.75,
+          "rmse": 71.333
+        },
+        "21": {
+          "intervals": 248,
+          "mae": 35.463,
+          "rmse": 66.657
+        },
+        "22": {
+          "intervals": 248,
+          "mae": 22.573,
+          "rmse": 41.556
+        },
+        "23": {
+          "intervals": 248,
+          "mae": 16.186,
+          "rmse": 23.032
+        }
+      },
+      "by_weekday": {
+        "Mon": {
+          "intervals": 864,
+          "mae": 25.928,
+          "rmse": 34.809
+        },
+        "Tue": {
+          "intervals": 768,
+          "mae": 29.038,
+          "rmse": 41.066
+        },
+        "Wed": {
+          "intervals": 864,
+          "mae": 32.809,
+          "rmse": 58.089
+        },
+        "Thu": {
+          "intervals": 864,
+          "mae": 31.258,
+          "rmse": 43.189
+        },
+        "Fri": {
+          "intervals": 864,
+          "mae": 32.279,
+          "rmse": 44.206
+        },
+        "Sat": {
+          "intervals": 864,
+          "mae": 22.319,
+          "rmse": 33.959
+        },
+        "Sun": {
+          "intervals": 864,
+          "mae": 21.598,
+          "rmse": 31.918
+        }
+      },
+      "slices": {
+        "negative_price": {
+          "intervals": 113,
+          "mae": 13.452,
+          "rmse": 24.522
+        },
+        "high_price": {
+          "intervals": 411,
+          "mae": 43.128,
+          "rmse": 72.808
+        }
+      }
+    },
+    "prior_day": {
+      "days": 62,
+      "unavailable_days": 0,
+      "intervals": 5952,
+      "mae": 25.705,
+      "rmse": 39.22,
+      "daily_mean_mae": 25.705,
+      "fallback_rate": 0,
+      "by_local_hour": {
+        "0": {
+          "intervals": 248,
+          "mae": 12.719,
+          "rmse": 17.524
+        },
+        "1": {
+          "intervals": 248,
+          "mae": 12.004,
+          "rmse": 16.242
+        },
+        "2": {
+          "intervals": 248,
+          "mae": 12.973,
+          "rmse": 18.359
+        },
+        "3": {
+          "intervals": 248,
+          "mae": 12.206,
+          "rmse": 17.868
+        },
+        "4": {
+          "intervals": 248,
+          "mae": 12.583,
+          "rmse": 18.704
+        },
+        "5": {
+          "intervals": 248,
+          "mae": 13.207,
+          "rmse": 18.28
+        },
+        "6": {
+          "intervals": 248,
+          "mae": 19.081,
+          "rmse": 26.644
+        },
+        "7": {
+          "intervals": 248,
+          "mae": 23.295,
+          "rmse": 33.444
+        },
+        "8": {
+          "intervals": 248,
+          "mae": 31.175,
+          "rmse": 43.11
+        },
+        "9": {
+          "intervals": 248,
+          "mae": 40.694,
+          "rmse": 57.337
+        },
+        "10": {
+          "intervals": 248,
+          "mae": 41.37,
+          "rmse": 57.677
+        },
+        "11": {
+          "intervals": 248,
+          "mae": 41.086,
+          "rmse": 55.305
+        },
+        "12": {
+          "intervals": 248,
+          "mae": 39.121,
+          "rmse": 54.026
+        },
+        "13": {
+          "intervals": 248,
+          "mae": 39.627,
+          "rmse": 54.592
+        },
+        "14": {
+          "intervals": 248,
+          "mae": 38.649,
+          "rmse": 53.968
+        },
+        "15": {
+          "intervals": 248,
+          "mae": 39.684,
+          "rmse": 57.529
+        },
+        "16": {
+          "intervals": 248,
+          "mae": 37.993,
+          "rmse": 53.494
+        },
+        "17": {
+          "intervals": 248,
+          "mae": 27.167,
+          "rmse": 36.961
+        },
+        "18": {
+          "intervals": 248,
+          "mae": 20.868,
+          "rmse": 27.653
+        },
+        "19": {
+          "intervals": 248,
+          "mae": 25.742,
+          "rmse": 35.809
+        },
+        "20": {
+          "intervals": 248,
+          "mae": 26.929,
+          "rmse": 39.115
+        },
+        "21": {
+          "intervals": 248,
+          "mae": 22.462,
+          "rmse": 33.613
+        },
+        "22": {
+          "intervals": 248,
+          "mae": 14.623,
+          "rmse": 19.292
+        },
+        "23": {
+          "intervals": 248,
+          "mae": 11.663,
+          "rmse": 14.74
+        }
+      },
+      "by_weekday": {
+        "Mon": {
+          "intervals": 864,
+          "mae": 50.189,
+          "rmse": 64.817
+        },
+        "Tue": {
+          "intervals": 768,
+          "mae": 17.768,
+          "rmse": 23.783
+        },
+        "Wed": {
+          "intervals": 864,
+          "mae": 16.502,
+          "rmse": 25.46
+        },
+        "Thu": {
+          "intervals": 864,
+          "mae": 21.97,
+          "rmse": 33.455
+        },
+        "Fri": {
+          "intervals": 864,
+          "mae": 17.999,
+          "rmse": 27.646
+        },
+        "Sat": {
+          "intervals": 864,
+          "mae": 37.158,
+          "rmse": 51.663
+        },
+        "Sun": {
+          "intervals": 864,
+          "mae": 17.467,
+          "rmse": 26.296
+        }
+      },
+      "slices": {
+        "negative_price": {
+          "intervals": 113,
+          "mae": 29.067,
+          "rmse": 48.952
+        },
+        "high_price": {
+          "intervals": 411,
+          "mae": 30.94,
+          "rmse": 42.447
+        }
+      }
+    },
+    "ridge-core-180-v1": {
+      "days": 62,
+      "unavailable_days": 0,
+      "intervals": 5952,
+      "mae": 21.347,
+      "rmse": 29.338,
+      "daily_mean_mae": 21.347,
+      "fallback_rate": 0,
+      "by_local_hour": {
+        "0": {
+          "intervals": 248,
+          "mae": 15.923,
+          "rmse": 21.532
+        },
+        "1": {
+          "intervals": 248,
+          "mae": 15.469,
+          "rmse": 20.992
+        },
+        "2": {
+          "intervals": 248,
+          "mae": 16.851,
+          "rmse": 23.281
+        },
+        "3": {
+          "intervals": 248,
+          "mae": 16.475,
+          "rmse": 23.494
+        },
+        "4": {
+          "intervals": 248,
+          "mae": 16.727,
+          "rmse": 23.057
+        },
+        "5": {
+          "intervals": 248,
+          "mae": 13.106,
+          "rmse": 17.777
+        },
+        "6": {
+          "intervals": 248,
+          "mae": 12.711,
+          "rmse": 17.789
+        },
+        "7": {
+          "intervals": 248,
+          "mae": 14.628,
+          "rmse": 20.688
+        },
+        "8": {
+          "intervals": 248,
+          "mae": 19.792,
+          "rmse": 26.976
+        },
+        "9": {
+          "intervals": 248,
+          "mae": 26.973,
+          "rmse": 35.964
+        },
+        "10": {
+          "intervals": 248,
+          "mae": 30.191,
+          "rmse": 37.555
+        },
+        "11": {
+          "intervals": 248,
+          "mae": 28.667,
+          "rmse": 35.82
+        },
+        "12": {
+          "intervals": 248,
+          "mae": 29.139,
+          "rmse": 35.91
+        },
+        "13": {
+          "intervals": 248,
+          "mae": 29.327,
+          "rmse": 35.594
+        },
+        "14": {
+          "intervals": 248,
+          "mae": 28.981,
+          "rmse": 34.652
+        },
+        "15": {
+          "intervals": 248,
+          "mae": 29.193,
+          "rmse": 36.602
+        },
+        "16": {
+          "intervals": 248,
+          "mae": 28.159,
+          "rmse": 36.737
+        },
+        "17": {
+          "intervals": 248,
+          "mae": 21.691,
+          "rmse": 29.292
+        },
+        "18": {
+          "intervals": 248,
+          "mae": 18.273,
+          "rmse": 24.676
+        },
+        "19": {
+          "intervals": 248,
+          "mae": 21.971,
+          "rmse": 32.702
+        },
+        "20": {
+          "intervals": 248,
+          "mae": 24.563,
+          "rmse": 36.059
+        },
+        "21": {
+          "intervals": 248,
+          "mae": 22.554,
+          "rmse": 34.13
+        },
+        "22": {
+          "intervals": 248,
+          "mae": 16.569,
+          "rmse": 23.054
+        },
+        "23": {
+          "intervals": 248,
+          "mae": 14.402,
+          "rmse": 19.297
+        }
+      },
+      "by_weekday": {
+        "Mon": {
+          "intervals": 864,
+          "mae": 26.109,
+          "rmse": 33.026
+        },
+        "Tue": {
+          "intervals": 768,
+          "mae": 20.199,
+          "rmse": 27.221
+        },
+        "Wed": {
+          "intervals": 864,
+          "mae": 16.829,
+          "rmse": 24.346
+        },
+        "Thu": {
+          "intervals": 864,
+          "mae": 21.934,
+          "rmse": 32.902
+        },
+        "Fri": {
+          "intervals": 864,
+          "mae": 18.398,
+          "rmse": 25.166
+        },
+        "Sat": {
+          "intervals": 864,
+          "mae": 27.011,
+          "rmse": 35.002
+        },
+        "Sun": {
+          "intervals": 864,
+          "mae": 18.824,
+          "rmse": 25.42
+        }
+      },
+      "slices": {
+        "negative_price": {
+          "intervals": 113,
+          "mae": 26.922,
+          "rmse": 39.606
+        },
+        "high_price": {
+          "intervals": 411,
+          "mae": 25.755,
+          "rmse": 37.356
+        }
+      }
+    }
+  },
+  "versus_weekly": {
+    "common_days": 62,
+    "week_blocks": 10,
+    "mae_skill": 0.234,
+    "daily_mae_difference": -6.524,
+    "difference_95": [
+      -9.952,
+      -3.102
+    ]
+  },
+  "versus_prior_day": {
+    "common_days": 62,
+    "week_blocks": 10,
+    "mae_skill": 0.17,
+    "daily_mae_difference": -4.358,
+    "difference_95": [
+      -6.772,
+      -1.862
+    ]
+  },
+  "caveats": [
+    "Inputs are the latest archived versions, all retrieved on or after 2026-09-17, not the vintages available at each past cutoff.",
+    "The holdout is now spent; later promotion evidence must come from forward days."
+  ]
+}
