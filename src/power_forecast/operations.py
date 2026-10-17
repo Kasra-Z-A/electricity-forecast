@@ -10,9 +10,10 @@ from uuid import uuid4
 
 from power_forecast.baseline import forecast
 from power_forecast.config import api_key
-from power_forecast.history import atomic_json, ingest_day
+from power_forecast.history import TRANSITION, atomic_json, ingest_day, ingest_window
 from power_forecast.ingestion.entsoe import SourceError
 from power_forecast.ingestion.observations import observe, observe_weather
+from power_forecast.lifecycle import CANDIDATE, shadow_forecast
 from power_forecast.scoring import score
 from power_forecast.timegrid import VIENNA, forecast_cutoff, results_expected
 
@@ -40,13 +41,22 @@ def official_path(data_dir: Path, day: date) -> Path:
     return data_dir / "official" / f"{day}.json"
 
 
+def run_shadow(day: date, data_dir: Path) -> dict:
+    """The candidate's forecast, made after the official one; it never fails publish."""
+    try:
+        record = shadow_forecast(day, data_dir, utcnow())
+        return {"model": record["model"], "status": "reused" if record.get("reused") else "saved"}
+    except Exception as error:  # noqa: BLE001 - the shadow must not affect publication
+        return {"status": "error", "error_type": type(error).__name__}
+
+
 def publish(day: date, data_dir: Path) -> dict:
     pointer = official_path(data_dir, day)
     if pointer.exists():
         existing = json.loads(pointer.read_text())
         if not (data_dir / existing["forecast_path"]).is_file():
             raise SourceError("Official forecast artifact is missing; restore from backup.")
-        return existing | {"reused": True}
+        return existing | {"reused": True, "shadow": run_shadow(day, data_dir)}
     now = utcnow()
     cutoff = forecast_cutoff(day)
     if not cutoff <= now <= cutoff + timedelta(minutes=30):
@@ -62,7 +72,27 @@ def publish(day: date, data_dir: Path) -> dict:
         "status": "on_time" if published <= cutoff + timedelta(minutes=15) else "late",
     }
     atomic_json(pointer, record)
-    return record
+    return record | {"shadow": run_shadow(day, data_dir)}
+
+
+def fill_training_history(day: date, key: str, data_dir: Path) -> dict:
+    """Download missing days the candidate trains on, a month per request.
+
+    Covers the training window plus the two weeks its lag features reach back, older
+    than the 28 days collect maintains. Once filled, nothing is requested.
+    """
+    first = max(TRANSITION, day - timedelta(days=CANDIDATE["training_window"] + 15))
+    missing = []
+    source_day = first
+    while source_day < day - timedelta(days=28):
+        if not (data_dir / "prices" / "days" / f"{source_day}.json").exists():
+            missing.append(source_day)
+        source_day += timedelta(days=1)
+    downloaded = 0
+    for start in range(0, len(missing), 31):
+        downloaded += len(ingest_window(missing[start : start + 31], key, data_dir))
+        sleep(0.5)
+    return {"missing": len(missing), "downloaded": downloaded, "status": "success"}
 
 
 def collect(day: date, data_dir: Path) -> dict:
@@ -79,6 +109,10 @@ def collect(day: date, data_dir: Path) -> dict:
                 sleep(0.5)
         except (SourceError, ValueError, OSError) as error:
             failures.append({"day": str(source_day), "error_type": type(error).__name__})
+    try:
+        training_history = fill_training_history(day, key, data_dir)
+    except Exception as error:  # noqa: BLE001 - research history must not fail collection
+        training_history = {"status": "error", "error_type": type(error).__name__}
     # Availability evidence for candidate covariates; it never affects this job's status.
     try:
         observations = [
@@ -98,6 +132,7 @@ def collect(day: date, data_dir: Path) -> dict:
         "completed": completed,
         "failures": failures,
         "observations": observations,
+        "training_history": training_history,
         "status": "partial" if failures else "success",
     }
 
@@ -143,12 +178,40 @@ def settle(day: date, data_dir: Path) -> dict:
         sleep(0.5)
     return {
         "results": results,
+        "shadow": settle_shadow(day, data_dir, scored),
         "status": (
             "partial"
             if any(item["status"] == "pending_or_failed" for item in results)
             else "success"
         ),
     }
+
+
+def settle_shadow(day: date, data_dir: Path, scored: set) -> list[dict]:
+    """Score shadow forecasts against the actuals the official loop just refreshed.
+
+    Failures are reported but never make settle partial.
+    """
+    results = []
+    for pointer in sorted((data_dir / "shadow" / "days").glob("*/*.json")):
+        record = json.loads(pointer.read_text())
+        target = date.fromisoformat(record["delivery_date"])
+        run = data_dir / record["forecast_path"]
+        if target > day or (target < day - timedelta(days=2) and run.stem in scored):
+            continue
+        try:
+            score(run, data_dir)
+            results.append({"model": record["model"], "day": str(target), "status": "scored"})
+        except (SourceError, ValueError, OSError) as error:
+            results.append(
+                {
+                    "model": record["model"],
+                    "day": str(target),
+                    "status": "pending",
+                    "error_type": type(error).__name__,
+                }
+            )
+    return results
 
 
 def health(day: date, data_dir: Path) -> dict:

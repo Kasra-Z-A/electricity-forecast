@@ -161,6 +161,31 @@ def forecast_command(
     typer.echo(f"Forecast saved: {output}")
 
 
+@app.command("shadow-replay")
+def shadow_replay(start: str, end: str, data_dir: Path = Path("data")):
+    """Recreate candidate forecasts for START inclusive to END exclusive.
+
+    Each day uses only the price versions retrieved before its cutoff, so run this
+    on the archive that collected them live. Training labels may be later downloads
+    and are marked reconstructed. Existing shadow days are kept.
+    """
+    from datetime import timedelta
+
+    from power_forecast.lifecycle import shadow_forecast
+    from power_forecast.timegrid import forecast_cutoff
+
+    try:
+        day, stop = date.fromisoformat(start), date.fromisoformat(end)
+        while day < stop:
+            with writer_lock(data_dir):
+                record = shadow_forecast(day, data_dir, forecast_cutoff(day), vintage=True)
+            typer.echo(f"{day}: {'kept' if record.get('reused') else record['mode']}")
+            day += timedelta(days=1)
+    except (ValueError, SourceError, OSError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1)
+
+
 @app.command("score")
 def score_command(run: Path, data_dir: Path = Path("data")):
     """Score a forecast JSON file against the latest complete actual-price snapshot."""

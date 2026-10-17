@@ -46,17 +46,33 @@ def matching_slot(lookup: dict, day: date, target: datetime, lag: int):
     )
 
 
+def code_sha256() -> str:
+    code = hashlib.sha256()
+    for path in sorted(Path(__file__).parent.rglob("*.py")):
+        code.update(str(path.relative_to(Path(__file__).parent)).encode())
+        code.update(path.read_bytes())
+    return code.hexdigest()
+
+
 def forecast(
     day: date,
     data_dir: Path,
     replay: bool = False,
     now: datetime | None = None,
     model: str = PRODUCTION_MODEL,
+    vintage: bool = False,
+    directory: str = "forecasts",
 ) -> Path:
+    """A seasonal forecast artifact.
+
+    `replay` permits history retrieved after the cutoff. `vintage` recreates a past
+    day from only the versions retrieved before its cutoff, i.e. exactly what a live
+    run would have seen; it is labelled as a replay and never becomes official.
+    """
     lags = MODELS[model]
     now = now or datetime.now(UTC)
     cutoff = forecast_cutoff(day)
-    if not replay and now < cutoff:
+    if not (replay or vintage) and now < cutoff:
         raise SourceError("Official cutoff has not arrived; use --replay for an exploratory run.")
     lookup = slot_lookup(historical_versions(data_dir, day, cutoff, replay))
     predictions = []
@@ -85,10 +101,6 @@ def forecast(
                 "hourly_derived": row.minutes != resolution(day),
             }
         )
-    code = hashlib.sha256()
-    for path in sorted(Path(__file__).parent.rglob("*.py")):
-        code.update(str(path.relative_to(Path(__file__).parent)).encode())
-        code.update(path.read_bytes())
     lock = Path("uv.lock")
     artifact = {
         "schema_version": 1,
@@ -96,18 +108,18 @@ def forecast(
         "delivery_date": str(day),
         "cutoff_at": cutoff.isoformat(),
         "issued_at": now.isoformat(),
-        "mode": "reconstructed_replay" if replay else "live",
+        "mode": "reconstructed_replay" if replay else "vintage_replay" if vintage else "live",
         "status": "replay"
-        if replay
+        if replay or vintage
         else ("on_time" if now <= cutoff + timedelta(minutes=15) else "late"),
         "timezone": "Europe/Vienna",
         "unit": "EUR/MWh",
-        "code_sha256": code.hexdigest(),
+        "code_sha256": code_sha256(),
         "lock_sha256": hashlib.sha256(lock.read_bytes()).hexdigest() if lock.exists() else None,
         "input_snapshots": list(used.values()),
         "predictions": predictions,
     }
     run_id = hashlib.sha256(json.dumps(artifact, sort_keys=True).encode()).hexdigest()
-    output = data_dir / "forecasts" / f"{run_id}.json"
+    output = data_dir / directory / f"{run_id}.json"
     atomic_json(output, artifact | {"run_id": run_id})
     return output

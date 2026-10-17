@@ -53,6 +53,22 @@ eligible history can still support publication. Historical data downloaded after
 10:30 through 11:00 on D-1; publication after 10:45 is explicitly late. Backfilled
 historical forecasts must use the separate `forecast --replay` command.
 
+Collection also downloads any day missing from the candidate's 180-day training
+window (plus two weeks of lag history), a month per request; once filled it requests
+nothing. Failures are reported under `training_history` and never fail collection.
+
+After the official forecast is published, publish runs the M6 candidate
+(`ridge-core-180-v1`, see `lifecycle.py`) in shadow: it refits at most weekly on the
+labels available at the cutoff and forecasts from the same eligible versions as the
+official run. Shadow artifacts are written under `shadow/`, never `forecasts/`, so they
+cannot reach the public dashboard or the official pointer, and their errors never
+change the publish status. Settle scores them after the official days.
+
+`power-forecast shadow-replay START END` recreates candidate forecasts for past days
+from the versions retrieved before each cutoff; run it on the host archive, which
+collected those versions live. Its fits use later-downloaded training labels and are
+marked `reconstructed_labels`.
+
 `official/YYYY-MM-DD.json` is the authoritative publication pointer. It is atomically
 written after the complete forecast artifact. Retries never replace it. A crash
 before pointer creation may leave a diagnostic artifact; retrying safely creates
