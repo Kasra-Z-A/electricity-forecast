@@ -1,0 +1,783 @@
+{
+  "evaluation": "single-group ablation on frozen validation folds",
+  "group": {
+    "weather": [
+      "wx_temperature",
+      "wx_wind_100m",
+      "wx_solar",
+      "wx_solar_day"
+    ]
+  },
+  "eligibility": "Open-Meteo ecmwf_ifs 00 UTC single run of D-1, typically available 4-6 hours later, before the cutoff; reconstructed, not a verified vintage; data CC BY 4.0 Open-Meteo.com",
+  "splits_sha256": "b0c184c2644e31112b4730f46b10e819f59e3865283d88f21b89e217d2ff05f2",
+  "models_config_sha256": "dc3826a6ff845d9e71762685a54361b3051000cc31b4b19434dc0469b6732709",
+  "weather_archive": {
+    "days": 381,
+    "first": "2025-10-01",
+    "last": "2026-10-17"
+  },
+  "eras": {
+    "native": {
+      "window": 180,
+      "models": {
+        "ridge": {
+          "excluded_days": [
+            "2026-06-24"
+          ],
+          "core": {
+            "days": 90,
+            "unavailable_days": 0,
+            "intervals": 8640,
+            "mae": 26.216,
+            "rmse": 41.833,
+            "daily_mean_mae": 26.216,
+            "fallback_rate": 0,
+            "by_local_hour": {
+              "0": {
+                "intervals": 360,
+                "mae": 16.469,
+                "rmse": 21.736
+              },
+              "1": {
+                "intervals": 360,
+                "mae": 16.337,
+                "rmse": 21.391
+              },
+              "2": {
+                "intervals": 360,
+                "mae": 16.554,
+                "rmse": 21.684
+              },
+              "3": {
+                "intervals": 360,
+                "mae": 16.27,
+                "rmse": 20.742
+              },
+              "4": {
+                "intervals": 360,
+                "mae": 17.259,
+                "rmse": 21.732
+              },
+              "5": {
+                "intervals": 360,
+                "mae": 16.613,
+                "rmse": 21.949
+              },
+              "6": {
+                "intervals": 360,
+                "mae": 17.925,
+                "rmse": 25.102
+              },
+              "7": {
+                "intervals": 360,
+                "mae": 19.831,
+                "rmse": 28.529
+              },
+              "8": {
+                "intervals": 360,
+                "mae": 23.455,
+                "rmse": 31.509
+              },
+              "9": {
+                "intervals": 360,
+                "mae": 28.72,
+                "rmse": 36.313
+              },
+              "10": {
+                "intervals": 360,
+                "mae": 32.329,
+                "rmse": 39.783
+              },
+              "11": {
+                "intervals": 360,
+                "mae": 33.739,
+                "rmse": 43.024
+              },
+              "12": {
+                "intervals": 360,
+                "mae": 37.975,
+                "rmse": 58.945
+              },
+              "13": {
+                "intervals": 360,
+                "mae": 45.695,
+                "rmse": 79.759
+              },
+              "14": {
+                "intervals": 360,
+                "mae": 45.705,
+                "rmse": 78.869
+              },
+              "15": {
+                "intervals": 360,
+                "mae": 38.612,
+                "rmse": 53.678
+              },
+              "16": {
+                "intervals": 360,
+                "mae": 30.63,
+                "rmse": 37.46
+              },
+              "17": {
+                "intervals": 360,
+                "mae": 26.253,
+                "rmse": 34.106
+              },
+              "18": {
+                "intervals": 360,
+                "mae": 20.01,
+                "rmse": 27.294
+              },
+              "19": {
+                "intervals": 360,
+                "mae": 24.151,
+                "rmse": 41.063
+              },
+              "20": {
+                "intervals": 360,
+                "mae": 35.185,
+                "rmse": 58.417
+              },
+              "21": {
+                "intervals": 360,
+                "mae": 31.629,
+                "rmse": 54.836
+              },
+              "22": {
+                "intervals": 360,
+                "mae": 21.313,
+                "rmse": 34.522
+              },
+              "23": {
+                "intervals": 360,
+                "mae": 16.526,
+                "rmse": 21.883
+              }
+            },
+            "by_weekday": {
+              "Mon": {
+                "intervals": 1248,
+                "mae": 31.394,
+                "rmse": 41.403
+              },
+              "Tue": {
+                "intervals": 1248,
+                "mae": 20.971,
+                "rmse": 35.97
+              },
+              "Wed": {
+                "intervals": 1152,
+                "mae": 19.18,
+                "rmse": 25.888
+              },
+              "Thu": {
+                "intervals": 1248,
+                "mae": 25.496,
+                "rmse": 42.368
+              },
+              "Fri": {
+                "intervals": 1248,
+                "mae": 27.781,
+                "rmse": 52.966
+              },
+              "Sat": {
+                "intervals": 1248,
+                "mae": 29.259,
+                "rmse": 39.27
+              },
+              "Sun": {
+                "intervals": 1248,
+                "mae": 28.89,
+                "rmse": 48.434
+              }
+            },
+            "slices": {
+              "negative_price": {
+                "intervals": 795,
+                "mae": 53.645,
+                "rmse": 86.963
+              },
+              "high_price": {
+                "intervals": 480,
+                "mae": 51.82,
+                "rmse": 77.503
+              }
+            }
+          },
+          "core_plus_weather": {
+            "days": 90,
+            "unavailable_days": 0,
+            "intervals": 8640,
+            "mae": 25.258,
+            "rmse": 40.057,
+            "daily_mean_mae": 25.258,
+            "fallback_rate": 0,
+            "by_local_hour": {
+              "0": {
+                "intervals": 360,
+                "mae": 15.18,
+                "rmse": 19.728
+              },
+              "1": {
+                "intervals": 360,
+                "mae": 15.516,
+                "rmse": 19.65
+              },
+              "2": {
+                "intervals": 360,
+                "mae": 15.584,
+                "rmse": 20.319
+              },
+              "3": {
+                "intervals": 360,
+                "mae": 15.56,
+                "rmse": 19.753
+              },
+              "4": {
+                "intervals": 360,
+                "mae": 16.331,
+                "rmse": 20.764
+              },
+              "5": {
+                "intervals": 360,
+                "mae": 16.17,
+                "rmse": 21.897
+              },
+              "6": {
+                "intervals": 360,
+                "mae": 18.284,
+                "rmse": 26.281
+              },
+              "7": {
+                "intervals": 360,
+                "mae": 20.58,
+                "rmse": 29.846
+              },
+              "8": {
+                "intervals": 360,
+                "mae": 24.628,
+                "rmse": 32.082
+              },
+              "9": {
+                "intervals": 360,
+                "mae": 28.607,
+                "rmse": 35.394
+              },
+              "10": {
+                "intervals": 360,
+                "mae": 29.338,
+                "rmse": 37.511
+              },
+              "11": {
+                "intervals": 360,
+                "mae": 29.515,
+                "rmse": 39.53
+              },
+              "12": {
+                "intervals": 360,
+                "mae": 34.408,
+                "rmse": 54.531
+              },
+              "13": {
+                "intervals": 360,
+                "mae": 42.41,
+                "rmse": 73.964
+              },
+              "14": {
+                "intervals": 360,
+                "mae": 41.967,
+                "rmse": 73.145
+              },
+              "15": {
+                "intervals": 360,
+                "mae": 34.148,
+                "rmse": 49.133
+              },
+              "16": {
+                "intervals": 360,
+                "mae": 27.869,
+                "rmse": 35.154
+              },
+              "17": {
+                "intervals": 360,
+                "mae": 29.795,
+                "rmse": 36.043
+              },
+              "18": {
+                "intervals": 360,
+                "mae": 25.865,
+                "rmse": 31.741
+              },
+              "19": {
+                "intervals": 360,
+                "mae": 26.384,
+                "rmse": 42.684
+              },
+              "20": {
+                "intervals": 360,
+                "mae": 33.535,
+                "rmse": 57.575
+              },
+              "21": {
+                "intervals": 360,
+                "mae": 29.782,
+                "rmse": 52.952
+              },
+              "22": {
+                "intervals": 360,
+                "mae": 19.727,
+                "rmse": 32.651
+              },
+              "23": {
+                "intervals": 360,
+                "mae": 15.01,
+                "rmse": 20.737
+              }
+            },
+            "by_weekday": {
+              "Mon": {
+                "intervals": 1248,
+                "mae": 32.813,
+                "rmse": 42.647
+              },
+              "Tue": {
+                "intervals": 1248,
+                "mae": 22.032,
+                "rmse": 37.015
+              },
+              "Wed": {
+                "intervals": 1152,
+                "mae": 18.682,
+                "rmse": 26.372
+              },
+              "Thu": {
+                "intervals": 1248,
+                "mae": 24.455,
+                "rmse": 38.783
+              },
+              "Fri": {
+                "intervals": 1248,
+                "mae": 23.115,
+                "rmse": 48.079
+              },
+              "Sat": {
+                "intervals": 1248,
+                "mae": 27.092,
+                "rmse": 35.847
+              },
+              "Sun": {
+                "intervals": 1248,
+                "mae": 28.111,
+                "rmse": 46.659
+              }
+            },
+            "slices": {
+              "negative_price": {
+                "intervals": 795,
+                "mae": 44.708,
+                "rmse": 78.143
+              },
+              "high_price": {
+                "intervals": 480,
+                "mae": 51.842,
+                "rmse": 77.358
+              }
+            }
+          },
+          "weather_versus_core": {
+            "common_days": 90,
+            "week_blocks": 14,
+            "mae_skill": 0.037,
+            "daily_mae_difference": -0.958,
+            "difference_95": [
+              -1.957,
+              0.151
+            ]
+          }
+        },
+        "lightgbm": {
+          "excluded_days": [
+            "2026-06-24"
+          ],
+          "core": {
+            "days": 90,
+            "unavailable_days": 0,
+            "intervals": 8640,
+            "mae": 26.804,
+            "rmse": 44.315,
+            "daily_mean_mae": 26.804,
+            "fallback_rate": 0,
+            "by_local_hour": {
+              "0": {
+                "intervals": 360,
+                "mae": 14.71,
+                "rmse": 20.049
+              },
+              "1": {
+                "intervals": 360,
+                "mae": 13.779,
+                "rmse": 19.351
+              },
+              "2": {
+                "intervals": 360,
+                "mae": 14.293,
+                "rmse": 20.487
+              },
+              "3": {
+                "intervals": 360,
+                "mae": 15.063,
+                "rmse": 21.135
+              },
+              "4": {
+                "intervals": 360,
+                "mae": 16.879,
+                "rmse": 23.165
+              },
+              "5": {
+                "intervals": 360,
+                "mae": 17.479,
+                "rmse": 24.025
+              },
+              "6": {
+                "intervals": 360,
+                "mae": 20.197,
+                "rmse": 27.983
+              },
+              "7": {
+                "intervals": 360,
+                "mae": 22.298,
+                "rmse": 31.51
+              },
+              "8": {
+                "intervals": 360,
+                "mae": 25.411,
+                "rmse": 34.806
+              },
+              "9": {
+                "intervals": 360,
+                "mae": 30.081,
+                "rmse": 39.422
+              },
+              "10": {
+                "intervals": 360,
+                "mae": 36.087,
+                "rmse": 45.02
+              },
+              "11": {
+                "intervals": 360,
+                "mae": 37.513,
+                "rmse": 49.805
+              },
+              "12": {
+                "intervals": 360,
+                "mae": 40.552,
+                "rmse": 63.863
+              },
+              "13": {
+                "intervals": 360,
+                "mae": 47.102,
+                "rmse": 83.737
+              },
+              "14": {
+                "intervals": 360,
+                "mae": 46.91,
+                "rmse": 83.01
+              },
+              "15": {
+                "intervals": 360,
+                "mae": 41.011,
+                "rmse": 60.542
+              },
+              "16": {
+                "intervals": 360,
+                "mae": 32.718,
+                "rmse": 43.462
+              },
+              "17": {
+                "intervals": 360,
+                "mae": 28.707,
+                "rmse": 38.841
+              },
+              "18": {
+                "intervals": 360,
+                "mae": 22.43,
+                "rmse": 30.907
+              },
+              "19": {
+                "intervals": 360,
+                "mae": 24.998,
+                "rmse": 41.378
+              },
+              "20": {
+                "intervals": 360,
+                "mae": 33.223,
+                "rmse": 58.051
+              },
+              "21": {
+                "intervals": 360,
+                "mae": 28.998,
+                "rmse": 54.121
+              },
+              "22": {
+                "intervals": 360,
+                "mae": 18.161,
+                "rmse": 30.343
+              },
+              "23": {
+                "intervals": 360,
+                "mae": 14.7,
+                "rmse": 19.876
+              }
+            },
+            "by_weekday": {
+              "Mon": {
+                "intervals": 1248,
+                "mae": 31.093,
+                "rmse": 48.006
+              },
+              "Tue": {
+                "intervals": 1248,
+                "mae": 24.675,
+                "rmse": 42.418
+              },
+              "Wed": {
+                "intervals": 1152,
+                "mae": 22.593,
+                "rmse": 30.838
+              },
+              "Thu": {
+                "intervals": 1248,
+                "mae": 25.868,
+                "rmse": 39.76
+              },
+              "Fri": {
+                "intervals": 1248,
+                "mae": 25.03,
+                "rmse": 50.071
+              },
+              "Sat": {
+                "intervals": 1248,
+                "mae": 27.018,
+                "rmse": 37.804
+              },
+              "Sun": {
+                "intervals": 1248,
+                "mae": 31.029,
+                "rmse": 55.649
+              }
+            },
+            "slices": {
+              "negative_price": {
+                "intervals": 795,
+                "mae": 57.068,
+                "rmse": 94.952
+              },
+              "high_price": {
+                "intervals": 480,
+                "mae": 46.446,
+                "rmse": 76.034
+              }
+            }
+          },
+          "core_plus_weather": {
+            "days": 90,
+            "unavailable_days": 0,
+            "intervals": 8640,
+            "mae": 24.875,
+            "rmse": 41.93,
+            "daily_mean_mae": 24.875,
+            "fallback_rate": 0,
+            "by_local_hour": {
+              "0": {
+                "intervals": 360,
+                "mae": 14.588,
+                "rmse": 20.136
+              },
+              "1": {
+                "intervals": 360,
+                "mae": 13.628,
+                "rmse": 19.141
+              },
+              "2": {
+                "intervals": 360,
+                "mae": 13.982,
+                "rmse": 20.277
+              },
+              "3": {
+                "intervals": 360,
+                "mae": 14.125,
+                "rmse": 19.517
+              },
+              "4": {
+                "intervals": 360,
+                "mae": 15.532,
+                "rmse": 21.678
+              },
+              "5": {
+                "intervals": 360,
+                "mae": 15.767,
+                "rmse": 22.724
+              },
+              "6": {
+                "intervals": 360,
+                "mae": 18.884,
+                "rmse": 27.485
+              },
+              "7": {
+                "intervals": 360,
+                "mae": 20.814,
+                "rmse": 30.398
+              },
+              "8": {
+                "intervals": 360,
+                "mae": 24.397,
+                "rmse": 33.194
+              },
+              "9": {
+                "intervals": 360,
+                "mae": 27.767,
+                "rmse": 36.211
+              },
+              "10": {
+                "intervals": 360,
+                "mae": 30.584,
+                "rmse": 39.993
+              },
+              "11": {
+                "intervals": 360,
+                "mae": 30.953,
+                "rmse": 43.151
+              },
+              "12": {
+                "intervals": 360,
+                "mae": 36.045,
+                "rmse": 59.452
+              },
+              "13": {
+                "intervals": 360,
+                "mae": 42.537,
+                "rmse": 80.432
+              },
+              "14": {
+                "intervals": 360,
+                "mae": 41.825,
+                "rmse": 78.826
+              },
+              "15": {
+                "intervals": 360,
+                "mae": 37.017,
+                "rmse": 55.787
+              },
+              "16": {
+                "intervals": 360,
+                "mae": 30.531,
+                "rmse": 40.694
+              },
+              "17": {
+                "intervals": 360,
+                "mae": 27.029,
+                "rmse": 36.854
+              },
+              "18": {
+                "intervals": 360,
+                "mae": 22.007,
+                "rmse": 30.236
+              },
+              "19": {
+                "intervals": 360,
+                "mae": 24.403,
+                "rmse": 40.482
+              },
+              "20": {
+                "intervals": 360,
+                "mae": 32.645,
+                "rmse": 56.422
+              },
+              "21": {
+                "intervals": 360,
+                "mae": 28.972,
+                "rmse": 52.626
+              },
+              "22": {
+                "intervals": 360,
+                "mae": 18.394,
+                "rmse": 29.377
+              },
+              "23": {
+                "intervals": 360,
+                "mae": 14.571,
+                "rmse": 19.453
+              }
+            },
+            "by_weekday": {
+              "Mon": {
+                "intervals": 1248,
+                "mae": 30.462,
+                "rmse": 46.611
+              },
+              "Tue": {
+                "intervals": 1248,
+                "mae": 22.931,
+                "rmse": 39.453
+              },
+              "Wed": {
+                "intervals": 1152,
+                "mae": 20.541,
+                "rmse": 28.178
+              },
+              "Thu": {
+                "intervals": 1248,
+                "mae": 23.41,
+                "rmse": 37.029
+              },
+              "Fri": {
+                "intervals": 1248,
+                "mae": 22.756,
+                "rmse": 47.521
+              },
+              "Sat": {
+                "intervals": 1248,
+                "mae": 24.718,
+                "rmse": 35.41
+              },
+              "Sun": {
+                "intervals": 1248,
+                "mae": 28.973,
+                "rmse": 53.163
+              }
+            },
+            "slices": {
+              "negative_price": {
+                "intervals": 795,
+                "mae": 51.565,
+                "rmse": 90.272
+              },
+              "high_price": {
+                "intervals": 480,
+                "mae": 44.371,
+                "rmse": 73.01
+              }
+            }
+          },
+          "weather_versus_core": {
+            "common_days": 90,
+            "week_blocks": 14,
+            "mae_skill": 0.072,
+            "daily_mae_difference": -1.929,
+            "difference_95": [
+              -2.895,
+              -0.911
+            ]
+          }
+        }
+      }
+    }
+  },
+  "caveats": [
+    "Archived runs before 2026 may be IFS Cycle 49R1 hindcasts; IFS Cycle 50R1 from 2026-05-12 falls inside the validation fold.",
+    "Weather exists only from 2024-03-14, so the hourly era is not ablated.",
+    "Six city points are regional proxies, not a capacity-weighted grid.",
+    "Hyperparameters are the M3 preregistered values; the group is not tuned.",
+    "Holdout folds were not evaluated."
+  ]
+}

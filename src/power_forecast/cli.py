@@ -106,6 +106,38 @@ def backfill_prices(
         raise typer.Exit(1)
 
 
+@app.command("backfill-weather")
+def backfill_weather(start: str, end: str, data_dir: Path = Path("data")):
+    """Archive the 00 UTC single run of D-1 for delivery days START to END (exclusive)."""
+    from datetime import timedelta
+    from time import sleep
+
+    from power_forecast.ingestion.weather import ingest_weather_day
+
+    failed = []
+    try:
+        day, stop = date.fromisoformat(start), date.fromisoformat(end)
+        while day < stop:
+            try:
+                with writer_lock(data_dir):
+                    result = ingest_weather_day(day, data_dir)
+                typer.echo(
+                    f"{day}: {'cached' if result['cached'] else 'downloaded'} ({result['run']})"
+                )
+            except SourceError as error:
+                # A defective archived run is left missing, never filled from another run.
+                failed.append(str(day))
+                typer.echo(f"{day}: {error}", err=True)
+            sleep(0.5)
+            day += timedelta(days=1)
+    except (ValueError, OSError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1)
+    if failed:
+        typer.echo(f"Missing days: {', '.join(failed)}", err=True)
+        raise typer.Exit(1)
+
+
 @app.command("forecast")
 def forecast_command(
     delivery_date: str,

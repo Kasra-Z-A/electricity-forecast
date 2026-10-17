@@ -87,6 +87,21 @@ most 0.08 EUR/MWh, with every 95% interval spanning zero
 ([report](reports/ablation_de_lu.json)). The group is not adopted: AT price lags
 already carry what DE-LU adds.
 
+**Weather ablation (M4).** Six-city means of ECMWF IFS temperature, 100 m wind and
+solar radiation from the 00 UTC run of D-1 (Open-Meteo single runs, data CC BY 4.0
+Open-Meteo.com), native era only ([report](reports/ablation_weather.json)):
+
+| Native Apr–Jun 2026 | Without weather | With weather | 95% interval, daily MAE difference |
+|---|---|---|---|
+| Ridge | 26.22 | 25.26 | [−1.96, +0.15] |
+| LightGBM | 26.80 | **24.88** | [−2.90, −0.91] |
+
+Weather helps most at midday and on negative-price intervals, and makes LightGBM the
+best model. The archived runs are reconstructed (early ones are recomputed
+hindcasts), ECMWF changed model cycle on 2026-05-12 inside the fold, and one day with
+a defective run (2026-06-24) is excluded from both sides. Production use needs
+forward-archived runs first.
+
 ## Sources
 
 - [ENTSO-E Transparency Platform](https://transparency.entsoe.eu): auction prices
@@ -152,6 +167,8 @@ uv run python experiments/freeze_splits.py
 uv run python experiments/backtest_baselines.py
 uv run --group research python experiments/backtest_models.py  # about 10 minutes
 uv run --group research python experiments/backtest_quantiles.py  # about 20 minutes
+uv run power-forecast backfill-weather 2025-10-01 2026-10-18
+uv run --group research python experiments/ablation.py weather
 ```
 
 Without `--replay`, a forecast runs only after its 10:30 Vienna cutoff, using input

@@ -6,7 +6,7 @@ Missing lagged slots (spring DST, archive gaps) take the prior-day baseline valu
 a deterministic rule that needs no statistics fitted on any data.
 """
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from math import cos, pi, sin
 from statistics import mean
 
@@ -36,7 +36,25 @@ FEATURES = (
 # Optional covariate groups, each added alone in an ablation (PLAN.md section 7).
 COVARIATES = {
     "de_lu": ("de_lag_1", "de_lag_7", "de_prev_mean", "spread_prev_mean"),
+    "weather": ("wx_temperature", "wx_wind_100m", "wx_solar", "wx_solar_day"),
 }
+WEATHER_VARIABLES = ("temperature_2m", "wind_speed_100m", "shortwave_radiation")
+
+
+def _weather_hours(run: dict, day: date) -> dict[datetime, list[float]] | None:
+    """Location-mean values per UTC hour, if `run` is the 00 UTC run of D-1."""
+    start = datetime.combine(day - timedelta(days=1), datetime.min.time(), UTC)
+    if datetime.fromisoformat(run["run"]) != start:
+        raise ValueError(f"Weather for {day} must come from the 00 UTC run of the day before.")
+    hours = {}
+    for step in range(48):
+        values = [
+            [run["values"][place][variable][step] for place in run["values"]]
+            for variable in WEATHER_VARIABLES
+        ]
+        if all(None not in group for group in values):
+            hours[start + timedelta(hours=step)] = [mean(group) for group in values]
+    return hours
 
 
 def feature_names(groups: tuple = ()) -> tuple:
@@ -79,6 +97,17 @@ def day_features(
     """
     covariates = covariates or {}
     newest = last_label_day(day)
+    weather = None
+    if "weather" in covariates:
+        runs = covariates["weather"]
+        if day not in runs:
+            return None
+        weather = _weather_hours(runs[day], day)
+        grid = delivery_grid(day, resolution(day))
+        day_hours = [weather.get(t.replace(minute=0)) for t in grid]
+        if None in day_hours:
+            return None
+        solar_day = mean(values[2] for values in day_hours)
     previous = _day_prices(archive, newest)
     week = [p for n in range(7) for p in _day_prices(archive, newest - timedelta(days=n))]
     if not previous or not week:
@@ -113,6 +142,9 @@ def day_features(
                 mean(de_previous) if de_previous else mean(previous),
                 mean(previous) - mean(de_previous) if de_previous else 0.0,
             ]
+        if weather is not None:
+            temperature, wind, solar = weather[target.replace(minute=0)]
+            extra += [temperature, wind, solar, solar_day]
         rows.append(
             [
                 local.hour,
