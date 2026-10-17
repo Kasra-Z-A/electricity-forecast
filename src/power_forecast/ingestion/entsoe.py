@@ -121,11 +121,15 @@ def parse_prices(payload: bytes, area: str = AREA) -> list[Price]:
 
 
 def fetch_prices(key: str, start: datetime, end: datetime, area: str = AREA) -> bytes:
-    params = {
+    return fetch_document(
+        key, {"documentType": "A44", "in_Domain": area, "out_Domain": area}, start, end
+    )
+
+
+def fetch_document(key: str, query: dict, start: datetime, end: datetime) -> bytes:
+    """One ENTSO-E request with bounded retries; errors never include the token."""
+    params = query | {
         "securityToken": key,
-        "documentType": "A44",
-        "in_Domain": area,
-        "out_Domain": area,
         "periodStart": start.strftime("%Y%m%d%H%M"),
         "periodEnd": end.strftime("%Y%m%d%H%M"),
     }

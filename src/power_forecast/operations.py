@@ -12,6 +12,7 @@ from power_forecast.baseline import forecast
 from power_forecast.config import api_key
 from power_forecast.history import atomic_json, ingest_day
 from power_forecast.ingestion.entsoe import SourceError
+from power_forecast.ingestion.observations import observe
 from power_forecast.scoring import score
 from power_forecast.timegrid import VIENNA, forecast_cutoff, results_expected
 
@@ -78,9 +79,17 @@ def collect(day: date, data_dir: Path) -> dict:
                 sleep(0.5)
         except (SourceError, ValueError, OSError) as error:
             failures.append({"day": str(source_day), "error_type": type(error).__name__})
+    # Availability evidence for candidate covariates; it never affects this job's status.
+    try:
+        observations = [
+            {"document": e["document"], "status": e["status"]} for e in observe(day, key, data_dir)
+        ]
+    except Exception as error:  # noqa: BLE001 - evidence collection must not fail collection
+        observations = [{"status": "error", "error_type": type(error).__name__}]
     return {
         "completed": completed,
         "failures": failures,
+        "observations": observations,
         "status": "partial" if failures else "success",
     }
 

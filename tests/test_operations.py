@@ -181,3 +181,15 @@ def test_settle_distinguishes_unpublished_results_from_failures(tmp_path):
     refresh_failed = settle_at(9.5, **unpublished)
     assert refresh_failed["status"] == "success"
     assert refresh_failed["result"]["results"][0]["status"] == "kept_previous_score"
+
+
+def test_failed_observation_never_changes_collection_status(tmp_path, no_live_observations):
+    no_live_observations.side_effect = RuntimeError("observation crashed")
+    with (
+        patch("power_forecast.operations.api_key", return_value="test"),
+        patch("power_forecast.operations.sleep"),
+        patch("power_forecast.operations.ingest_day", return_value={"cached": True}),
+    ):
+        result = run_job("collect", tmp_path, DAY)
+    assert result["status"] == "success"
+    assert result["result"]["observations"] == [{"status": "error", "error_type": "RuntimeError"}]

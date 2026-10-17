@@ -1,4 +1,5 @@
 from datetime import date
+from unittest.mock import patch
 
 import pytest
 from test_backtest import seed_days
@@ -11,3 +12,10 @@ def archive(tmp_path):
     """Synthetic native-era archive, 2026-07-10 through 2026-09-11."""
     seed_days(tmp_path, date(2026, 7, 10), date(2026, 9, 11))
     return load_archive(tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def no_live_observations():
+    """collect also logs covariate availability; tests must never reach ENTSO-E."""
+    with patch("power_forecast.operations.observe", return_value=[]) as observe:
+        yield observe

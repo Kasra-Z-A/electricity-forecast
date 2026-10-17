@@ -78,6 +78,11 @@ are unknown for everything downloaded today.
 The deadlines are quoted from Commission Regulation (EU) No 543/2013, Articles 6(2)(b),
 14(2)(c) and 14(2)(d) (consolidated text; Brussels time per Article 2(31)).
 
+ENTSO-E responses carry no publication time (`createdDateTime` is the response time),
+so first-seen evidence for the load and wind/solar forecasts comes only from the
+production host's 10:00 and 15:00 collections, logged under `observations/` from the
+deployment of this change onward.
+
 Weather caveats: the Historical Forecast API stitches the early hours of successive
 runs, so it does not represent one forecast available at a fixed cutoff and is not
 used. Single runs before 2024-03-14 do not exist, so the hourly research era

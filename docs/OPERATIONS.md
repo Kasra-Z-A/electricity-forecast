@@ -39,7 +39,12 @@ directory for each attempt, and `operations/JOB.json` for its latest outcome.
 | 13:00, 14:00, 16:00, 20:00 | settle | Retrieve actual auction prices and score; retry unscored days and refresh three recent days |
 | 10:46, 11:05, 20:15 | watchdog | Report missing/late publication, missing artifacts, unsuccessful collection and pending scores |
 
-Collection continues past individual day failures and records their dates. Existing
+Collection continues past individual day failures and records their dates. Each
+collection also fetches the ENTSO-E day-ahead load forecast (A65) and wind/solar
+forecast (A69) for the delivery day and appends what it found to
+`observations/load_forecast.jsonl` and `observations/wind_solar_forecast.jsonl`.
+This is availability evidence for the covariate audit only; it never feeds a forecast
+and its failures never change the collection status. Existing
 eligible history can still support publication. Historical data downloaded after
 10:30 cannot enter that day's official forecast. Publication is allowed only from
 10:30 through 11:00 on D-1; publication after 10:45 is explicitly late. Backfilled
