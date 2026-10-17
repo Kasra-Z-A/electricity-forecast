@@ -17,6 +17,7 @@ from pathlib import Path
 
 from power_forecast import ridge
 from power_forecast.baseline import code_sha256, slot_lookup
+from power_forecast.baseline import forecast as baseline_forecast
 from power_forecast.features import FEATURES, day_features
 from power_forecast.history import (
     TRANSITION,
@@ -127,14 +128,14 @@ def pointer_path(data_dir: Path, model: str, day: date) -> Path:
     return data_dir / "shadow" / "days" / model / f"{day}.json"
 
 
-def shadow_forecast(day: date, data_dir: Path, now: datetime, vintage: bool = False) -> dict:
-    """Forecast `day` with the candidate once; an existing pointer is returned unchanged."""
-    pointer = pointer_path(data_dir, CANDIDATE["name"], day)
-    if pointer.exists():
-        return json.loads(pointer.read_text()) | {"reused": True}
+def candidate_forecast(
+    day: date, data_dir: Path, now: datetime, role: str, vintage: bool = False
+) -> Path:
+    """Write the candidate's forecast for `day`: official runs go to `forecasts/`,
+    shadow runs and replays to `shadow/forecasts/`."""
     cutoff = forecast_cutoff(day)
     if not vintage and now < cutoff:
-        raise SourceError("Shadow forecasts run after the cutoff.")
+        raise SourceError("Learned forecasts run after the cutoff.")
     # A live refit happens at the cutoff, so it sees no version retrieved after it.
     model = current_fit(data_dir, cutoff, reconstructed_labels=vintage)
     snapshots = historical_versions(data_dir, day, cutoff, replay=False)
@@ -151,11 +152,14 @@ def shadow_forecast(day: date, data_dir: Path, now: datetime, vintage: bool = Fa
         "schema_version": 1,
         "model": CANDIDATE["name"],
         "fit_id": model["fit_id"],
-        "role": "shadow",
+        "role": role,
         "delivery_date": str(day),
         "cutoff_at": cutoff.isoformat(),
         "issued_at": now.isoformat(),
         "mode": "vintage_replay" if vintage else "live",
+        "status": "replay"
+        if vintage
+        else ("on_time" if now <= cutoff + timedelta(minutes=15) else "late"),
         "training_labels": "reconstructed" if model["reconstructed_labels"] else "vintage",
         "timezone": "Europe/Vienna",
         "unit": "EUR/MWh",
@@ -173,13 +177,49 @@ def shadow_forecast(day: date, data_dir: Path, now: datetime, vintage: bool = Fa
         ],
     }
     run_id = _digest(artifact)
-    output = data_dir / "shadow" / "forecasts" / f"{run_id}.json"
+    directory = "forecasts" if role == "official" else "shadow/forecasts"
+    output = data_dir / directory / f"{run_id}.json"
     atomic_json(output, artifact | {"run_id": run_id})
+    return output
+
+
+def _point_to(data_dir: Path, model: str, day: date, output: Path, mode: str) -> dict:
     record = {
-        "model": CANDIDATE["name"],
+        "model": model,
         "delivery_date": str(day),
         "forecast_path": str(output.relative_to(data_dir)),
-        "mode": artifact["mode"],
+        "mode": mode,
     }
-    atomic_json(pointer, record)
+    atomic_json(pointer_path(data_dir, model, day), record)
     return record
+
+
+def shadow_forecast(day: date, data_dir: Path, now: datetime, vintage: bool = False) -> dict:
+    """Forecast `day` with the candidate once; an existing pointer is returned unchanged."""
+    pointer = pointer_path(data_dir, CANDIDATE["name"], day)
+    if pointer.exists():
+        return json.loads(pointer.read_text()) | {"reused": True}
+    output = candidate_forecast(day, data_dir, now, "shadow", vintage)
+    return _point_to(
+        data_dir, CANDIDATE["name"], day, output, "vintage_replay" if vintage else "live"
+    )
+
+
+def reference_forecast(day: date, data_dir: Path, model: str) -> dict:
+    """A seasonal baseline for a past day from the versions retrieved before its cutoff.
+
+    It is what the live job would have published, so the gate can compare a candidate
+    with a champion or the weekly reference on days that champion was not official.
+    """
+    pointer = pointer_path(data_dir, model, day)
+    if pointer.exists():
+        return json.loads(pointer.read_text())
+    output = baseline_forecast(
+        day,
+        data_dir,
+        now=forecast_cutoff(day),
+        model=model,
+        vintage=True,
+        directory="shadow/forecasts",
+    )
+    return _point_to(data_dir, model, day, output, "vintage_replay")

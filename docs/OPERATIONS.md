@@ -69,6 +69,34 @@ from the versions retrieved before each cutoff; run it on the host archive, whic
 collected those versions live. Its fits use later-downloaded training labels and are
 marked `reconstructed_labels`.
 
+### Champion, automatic promotion and rollback
+
+`models/champion.json` names the published model; without it the champion is
+`seasonal-daily-v1`. When the candidate is champion, publish writes its forecast as
+the official one; if that fails for any reason, the seasonal baseline is published
+instead and the pointer records `fallback_from`.
+
+Every settle run evaluates the candidate (`promotion.py`) on all days it has a
+scorable shadow or replay forecast, against the champion and `seasonal-weekly-v1` on
+the same days and the latest actuals. Where those baselines were not official, the
+gate replays what they would have published from the versions retrieved before each
+cutoff. The candidate is promoted automatically, effective from the next publication,
+when all checks pass: at least 28 common days, at least 14 of them live shadow days,
+MAE at least 2% below the champion, below the weekly baseline, the week-block 95%
+interval of the daily MAE difference entirely below zero, and RMSE no more than 5%
+above the champion. Each evaluation is kept under `models/evaluations/`; promotions
+and rollbacks are appended to `models/events.jsonl`. Gate errors never fail settle.
+
+`power-forecast evaluate` runs the gate without promoting. To roll back:
+
+```sh
+docker compose -f deploy/compose.server.yaml run --rm batch rollback "reason"
+```
+
+This restores the previous champion from the next publication and blocks the rolled-back
+model; only a new candidate version can be promoted again. It never replaces an
+official forecast that was already published.
+
 `official/YYYY-MM-DD.json` is the authoritative publication pointer. It is atomically
 written after the complete forecast artifact. Retries never replace it. A crash
 before pointer creation may leave a diagnostic artifact; retrying safely creates

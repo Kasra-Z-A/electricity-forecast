@@ -13,7 +13,8 @@ from power_forecast.config import api_key
 from power_forecast.history import TRANSITION, atomic_json, ingest_day, ingest_window
 from power_forecast.ingestion.entsoe import SourceError
 from power_forecast.ingestion.observations import observe, observe_weather
-from power_forecast.lifecycle import CANDIDATE, shadow_forecast
+from power_forecast.lifecycle import CANDIDATE, candidate_forecast, shadow_forecast
+from power_forecast.promotion import champion, run_gate
 from power_forecast.scoring import score
 from power_forecast.timegrid import VIENNA, forecast_cutoff, results_expected
 
@@ -43,6 +44,8 @@ def official_path(data_dir: Path, day: date) -> Path:
 
 def run_shadow(day: date, data_dir: Path) -> dict:
     """The candidate's forecast, made after the official one; it never fails publish."""
+    if champion(data_dir)["model"] == CANDIDATE["name"]:
+        return {"status": "skipped", "reason": "candidate_is_champion"}
     try:
         record = shadow_forecast(day, data_dir, utcnow())
         return {"model": record["model"], "status": "reused" if record.get("reused") else "saved"}
@@ -61,7 +64,16 @@ def publish(day: date, data_dir: Path) -> dict:
     cutoff = forecast_cutoff(day)
     if not cutoff <= now <= cutoff + timedelta(minutes=30):
         raise SourceError("Publication is allowed only from 10:30 through 11:00 Vienna on D-1.")
-    artifact = forecast(day, data_dir, now=now)
+    model, fallback = champion(data_dir)["model"], None
+    if model == CANDIDATE["name"]:
+        try:
+            artifact = candidate_forecast(day, data_dir, now, "official")
+        except Exception as error:  # noqa: BLE001 - any model failure falls back
+            # The seasonal baseline needs no fitted model, so it is the safe fallback.
+            fallback = {"model": model, "error_type": type(error).__name__}
+            artifact = forecast(day, data_dir, now=now)
+    else:
+        artifact = forecast(day, data_dir, now=now)
     published = utcnow()
     if published > cutoff + timedelta(minutes=30):
         raise SourceError("Publication window closed while computing; artifact remains diagnostic.")
@@ -71,6 +83,8 @@ def publish(day: date, data_dir: Path) -> dict:
         "published_at": published.isoformat(),
         "status": "on_time" if published <= cutoff + timedelta(minutes=15) else "late",
     }
+    if fallback:
+        record["fallback_from"] = fallback
     atomic_json(pointer, record)
     return record | {"shadow": run_shadow(day, data_dir)}
 
@@ -179,6 +193,7 @@ def settle(day: date, data_dir: Path) -> dict:
     return {
         "results": results,
         "shadow": settle_shadow(day, data_dir, scored),
+        "promotion": settle_gate(data_dir),
         "status": (
             "partial"
             if any(item["status"] == "pending_or_failed" for item in results)
@@ -212,6 +227,14 @@ def settle_shadow(day: date, data_dir: Path, scored: set) -> list[dict]:
                 }
             )
     return results
+
+
+def settle_gate(data_dir: Path) -> dict:
+    """Run the promotion gate after scoring; an error never makes settle partial."""
+    try:
+        return run_gate(data_dir, utcnow())
+    except Exception as error:  # noqa: BLE001 - the gate must not affect settlement
+        return {"status": "error", "error_type": type(error).__name__}
 
 
 def health(day: date, data_dir: Path) -> dict:

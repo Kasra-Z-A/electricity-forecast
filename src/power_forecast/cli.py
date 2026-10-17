@@ -186,6 +186,40 @@ def shadow_replay(start: str, end: str, data_dir: Path = Path("data")):
         raise typer.Exit(1)
 
 
+@app.command("evaluate")
+def evaluate_command(data_dir: Path = Path("data")):
+    """Evaluate the candidate against the champion without promoting it."""
+    import json
+
+    from power_forecast.promotion import evaluate
+
+    try:
+        with writer_lock(data_dir):
+            report = evaluate(data_dir, datetime.now(VIENNA))
+    except (ValueError, SourceError, OSError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1)
+    typer.echo(
+        json.dumps(
+            {k: report[k] for k in ("path", "live_shadow_days", "checks", "passed")}, indent=2
+        )
+    )
+
+
+@app.command("rollback")
+def rollback_command(reason: str, data_dir: Path = Path("data")):
+    """Restore the previous champion; the current one is blocked from promotion."""
+    from power_forecast.promotion import rollback
+
+    try:
+        with writer_lock(data_dir):
+            event = rollback(data_dir, datetime.now(VIENNA), reason)
+    except (ValueError, SourceError, OSError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Rolled back {event['model']}; champion is {event['restored']}.")
+
+
 @app.command("score")
 def score_command(run: Path, data_dir: Path = Path("data")):
     """Score a forecast JSON file against the latest complete actual-price snapshot."""
