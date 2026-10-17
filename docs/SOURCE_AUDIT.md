@@ -81,7 +81,9 @@ The deadlines are quoted from Commission Regulation (EU) No 543/2013, Articles 6
 ENTSO-E responses carry no publication time (`createdDateTime` is the response time),
 so first-seen evidence for the load and wind/solar forecasts comes only from the
 production host's 10:00 and 15:00 collections, logged under `observations/` from the
-deployment of this change onward.
+deployment of this change onward. The same collections archive the ECMWF run for D and
+log in `observations/weather.jsonl` whether it was already served; the weather group
+can enter official runs only once that log shows the run before 10:30 on every day.
 
 Weather caveats: the Historical Forecast API stitches the early hours of successive
 runs, so it does not represent one forecast available at a fixed cutoff and is not

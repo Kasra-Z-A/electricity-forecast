@@ -3,7 +3,8 @@
 ENTSO-E responses carry no publication time; `createdDateTime` is when the response
 was generated. The only evidence that a forecast for D existed before the cutoff is
 having retrieved it then, so the 10:00 collection records what each document held
-at that moment in an append-only log. Nothing here feeds a forecast.
+at that moment in an append-only log. The same holds for the ECMWF run, whose
+publication time Open-Meteo does not record. Nothing here feeds a forecast.
 """
 
 import hashlib
@@ -14,6 +15,7 @@ from pathlib import Path
 from defusedxml import ElementTree as ET
 
 from power_forecast.ingestion.entsoe import AREA, SourceError, fetch_document
+from power_forecast.ingestion.weather import ingest_weather_day
 from power_forecast.timegrid import day_bounds
 
 DOCUMENTS = {
@@ -71,3 +73,30 @@ def observe(day: date, key: str, data_dir: Path) -> list[dict]:
             log.write(json.dumps(entry) + "\n")
         entries.append(entry)
     return entries
+
+
+def observe_weather(day: date, data_dir: Path) -> dict:
+    """Archive the 00 UTC run of D-1 if it is already served, and log whether it was.
+
+    A run archived by an earlier collection is reported as cached with its original
+    retrieval time, which is the first-seen evidence. Open-Meteo needs no credentials,
+    so its error messages are kept: they distinguish an unpublished run from a gap.
+    """
+    directory = data_dir / "observations"
+    directory.mkdir(parents=True, exist_ok=True)
+    retrieved_at = datetime.now(UTC).isoformat()
+    try:
+        record = ingest_weather_day(day, data_dir)
+        stored = json.loads((data_dir / record["path"]).read_text())
+        entry = {
+            "status": "cached" if record["cached"] else "complete",
+            "run": record["run"],
+            "first_retrieved_at": stored["retrieved_at"],
+            "raw_sha256": stored["raw_sha256"],
+        }
+    except (SourceError, OSError, ValueError) as error:
+        entry = {"status": "error", "error_type": type(error).__name__, "detail": str(error)}
+    entry = {"document": "weather", "delivery_date": str(day), "retrieved_at": retrieved_at} | entry
+    with (directory / "weather.jsonl").open("a") as log:
+        log.write(json.dumps(entry) + "\n")
+    return entry

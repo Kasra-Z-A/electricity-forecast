@@ -16,6 +16,9 @@ def archive(tmp_path):
 
 @pytest.fixture(autouse=True)
 def no_live_observations():
-    """collect also logs covariate availability; tests must never reach ENTSO-E."""
-    with patch("power_forecast.operations.observe", return_value=[]) as observe:
+    """collect also logs covariate availability; tests must never reach ENTSO-E or Open-Meteo."""
+    with (
+        patch("power_forecast.operations.observe", return_value=[]) as observe,
+        patch("power_forecast.operations.observe_weather", return_value={"status": "cached"}),
+    ):
         yield observe

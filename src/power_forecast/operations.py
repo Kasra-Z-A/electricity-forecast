@@ -12,7 +12,7 @@ from power_forecast.baseline import forecast
 from power_forecast.config import api_key
 from power_forecast.history import atomic_json, ingest_day
 from power_forecast.ingestion.entsoe import SourceError
-from power_forecast.ingestion.observations import observe
+from power_forecast.ingestion.observations import observe, observe_weather
 from power_forecast.scoring import score
 from power_forecast.timegrid import VIENNA, forecast_cutoff, results_expected
 
@@ -86,6 +86,14 @@ def collect(day: date, data_dir: Path) -> dict:
         ]
     except Exception as error:  # noqa: BLE001 - evidence collection must not fail collection
         observations = [{"status": "error", "error_type": type(error).__name__}]
+    try:
+        observations.append(
+            {"document": "weather", "status": observe_weather(day, data_dir)["status"]}
+        )
+    except Exception as error:  # noqa: BLE001 - evidence collection must not fail collection
+        observations.append(
+            {"document": "weather", "status": "error", "error_type": type(error).__name__}
+        )
     return {
         "completed": completed,
         "failures": failures,

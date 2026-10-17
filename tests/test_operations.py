@@ -192,4 +192,7 @@ def test_failed_observation_never_changes_collection_status(tmp_path, no_live_ob
     ):
         result = run_job("collect", tmp_path, DAY)
     assert result["status"] == "success"
-    assert result["result"]["observations"] == [{"status": "error", "error_type": "RuntimeError"}]
+    assert result["result"]["observations"] == [
+        {"status": "error", "error_type": "RuntimeError"},
+        {"document": "weather", "status": "cached"},
+    ]

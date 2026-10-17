@@ -43,6 +43,9 @@ Collection continues past individual day failures and records their dates. Each
 collection also fetches the ENTSO-E day-ahead load forecast (A65) and wind/solar
 forecast (A69) for the delivery day and appends what it found to
 `observations/load_forecast.jsonl` and `observations/wind_solar_forecast.jsonl`.
+It also archives the ECMWF 00 UTC run of D-1 from Open-Meteo under `weather/` once
+it is served, and logs each attempt to `observations/weather.jsonl`; a run archived
+at 10:00 shows as cached at 10:15 with its first retrieval time.
 This is availability evidence for the covariate audit only; it never feeds a forecast
 and its failures never change the collection status. Existing
 eligible history can still support publication. Historical data downloaded after
