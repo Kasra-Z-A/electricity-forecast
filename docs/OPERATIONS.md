@@ -87,10 +87,15 @@ interval of the daily MAE difference entirely below zero, and RMSE no more than 
 above the champion. Each evaluation is kept under `models/evaluations/`; promotions
 and rollbacks are appended to `models/events.jsonl`. Gate errors never fail settle.
 
-`power-forecast evaluate` runs the gate without promoting. To roll back:
+`power-forecast evaluate` runs the gate without promoting. One-off commands such as
+`rollback`, `evaluate` and `shadow-replay` run on the host as root, holding the host
+lock so no scheduled job runs at the same time:
 
 ```sh
-docker compose -f deploy/compose.server.yaml run --rm batch rollback "reason"
+cd /opt/electricity-forecast && set -a && . /etc/power-forecast/host.env && set +a
+touch /run/power-forecast.env
+flock /run/power-forecast-host.lock \
+  docker compose -f deploy/compose.server.yaml run --rm batch rollback "reason"
 ```
 
 This restores the previous champion from the next publication and blocks the rolled-back
