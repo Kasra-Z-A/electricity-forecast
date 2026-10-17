@@ -1,0 +1,9 @@
+{
+  "_comment": "First learned candidate for M6, frozen 2026-10-17 before the native holdout was consulted. Chosen on validation only (reports/backtest_models.json): ridge with core features beat LightGBM (26.49 vs 27.20 EUR/MWh) and the 180-day window edged the expanding one (26.49 vs 26.56). Settings are those of configs/backtest_models.json; nothing here was tuned on the holdout.",
+  "name": "ridge-core-180-v1",
+  "kind": "ridge",
+  "params": {"alpha": 1.0},
+  "features": "core",
+  "training_window": 180,
+  "seed": 0
+}
