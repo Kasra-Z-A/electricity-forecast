@@ -228,11 +228,13 @@ a newly exported snapshot. The background job is included in the timer installat
 above. The production Docker batch image is validated; the optional Nginx
 container is not used by the S3-hosted deployment.
 
-Historical replays never appear as official forecasts. Diagnostic live runs are
-excluded unless an official publication pointer exists. One run per mode and day
-is displayed. Metrics are recomputed from the latest complete archived actuals,
-weighted by interval count, and separated by mode. They may differ from an older
-pinned score after a source revision. Negative prices and 92/100-interval DST days
+The dashboard shows official forecasts only: replays, diagnostic runs and shadow
+forecasts never appear in its charts, although every artifact in `forecasts/` is
+checksum-verified on export. Metrics are recomputed from the latest complete archived
+actuals, weighted by interval count, and cover the model behind the newest published
+day. They may differ from an older pinned score after a source revision. The model
+comparison section reads names and descriptions from `MODEL_INFO` and `CANDIDATE_INFO`,
+so promoting a model or starting a new candidate needs no page change. Negative prices and 92/100-interval DST days
 are preserved. An empty archive produces a valid empty dashboard rather than sample
 or invented prices.
 

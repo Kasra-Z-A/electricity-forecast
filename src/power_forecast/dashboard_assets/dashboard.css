@@ -129,8 +129,32 @@ h1 {
   color: var(--ink-soft);
 }
 section.explorer,
-section.performance {
+section.performance,
+section.models {
   margin-top: 3.5rem;
+}
+.models-intro {
+  max-width: 80ch;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+section.models .table-scroll {
+  max-height: none;
+}
+section.models td {
+  vertical-align: top;
+}
+.model-name {
+  white-space: normal;
+  min-width: 18rem;
+  font-weight: 600;
+}
+.model-name small {
+  display: block;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 0.25rem;
+  max-width: 55ch;
 }
 .section-head {
   display: flex;
@@ -151,24 +175,6 @@ h2 {
   gap: 1rem;
   flex-wrap: wrap;
   justify-content: end;
-}
-.segmented {
-  display: flex;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 3px;
-}
-.segmented button {
-  font-size: 0.75rem;
-  padding: 0.6rem 0.85rem;
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  white-space: nowrap;
-}
-.segmented button[aria-pressed="true"] {
-  background: var(--ink);
-  color: var(--paper);
 }
 .date-label {
   display: grid;
@@ -300,16 +306,6 @@ td {
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
-caption {
-  text-align: left;
-  color: var(--muted);
-  padding-bottom: 0.5rem;
-}
-.section-note {
-  max-width: 36ch;
-  font-size: 0.8125rem;
-  color: var(--muted);
-}
 .metrics {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -398,10 +394,6 @@ caption {
   color: var(--ink-soft);
   margin-top: 1rem;
   max-width: 53ch;
-}
-.method-note {
-  border-left: 2px solid var(--rust);
-  padding-left: 1rem;
 }
 .job {
   padding: 0.85rem 0;
@@ -620,7 +612,6 @@ caption {
 .loop-inner {
   fill: none;
   stroke: var(--muted);
-  stroke-dasharray: 5 4;
 }
 .loop-inner-title {
   fill: var(--ink-soft);
@@ -632,12 +623,6 @@ caption {
   fill: var(--muted);
   font-family: "Inter Variable", system-ui, sans-serif;
   font-size: 12px;
-}
-.loop figcaption {
-  margin-top: 1.25rem;
-  max-width: 78ch;
-  color: var(--ink-soft);
-  font-size: 0.8rem;
 }
 
 /* The list is the narrow-screen rendering and the accessible text at every

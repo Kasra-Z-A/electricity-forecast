@@ -38,6 +38,11 @@ CANDIDATE = {
     "training_window": 180,
     "seed": 0,
 }
+CANDIDATE_INFO = {
+    "name": "Ridge regression",
+    "description": "A linear regression on recent prices at the same time of day and on "
+    "calendar features, retrained every week on the last 180 days.",
+}
 REFIT_DAYS = 7
 
 

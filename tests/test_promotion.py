@@ -141,3 +141,17 @@ def test_failing_champion_falls_back_to_the_seasonal_baseline(promoted):
     run = json.loads((promoted / record["forecast_path"]).read_text())
     assert run["model"] == PRODUCTION_MODEL
     assert record["fallback_from"] == {"model": CANDIDATE["name"], "error_type": "ValueError"}
+
+
+def test_monitoring_compares_models_on_the_same_recent_days(scored):
+    from power_forecast.promotion import monitoring
+
+    data_dir, forecasts = scored
+    forecasts(candidate_error=4.0, live=10)
+    run_gate(data_dir, NOW)
+    summary = monitoring(data_dir)
+    rows = {row["model"]: row for row in summary["rows"]}
+    assert rows[CANDIDATE["name"]]["role"] == "shadow"
+    assert rows[PRODUCTION_MODEL]["role"] == "published"
+    assert rows[CANDIDATE["name"]]["mae_7"] == pytest.approx(4.0)
+    assert rows[WEEKLY]["mae_28"] == pytest.approx(8.0)

@@ -35,13 +35,9 @@
           </p>
         </div>
         <aside class="hero-note">
-          <span class="label">Forecast model</span>
-          <h2>Prior-day baseline</h2>
-          <p>
-            The prior-day baseline uses the price at the same local time on the
-            previous day. Errors are calculated when actual auction prices are
-            available.
-          </p>
+          <span class="label">Published model</span>
+          <h2 id="champion-name">Loading…</h2>
+          <p id="champion-text"></p>
           <a href="#method">Forecast method ↓</a>
         </aside>
       </section>
@@ -60,12 +56,6 @@
             <h2 id="curve-title">Forecast and actual prices</h2>
           </div>
           <div class="controls">
-            <div class="segmented" aria-label="Forecast type">
-              <button id="replay" aria-pressed="true">Historical replay</button
-              ><button id="live" aria-pressed="false">
-                Official forecasts
-              </button>
-            </div>
             <label class="date-label"
               >Delivery day<select id="day" aria-label="Delivery day"></select
             ></label>
@@ -101,9 +91,6 @@
           <summary>View interval data <span>↗</span></summary>
           <div class="table-scroll">
             <table>
-              <caption>
-                Selected delivery day · Vienna time, including UTC offset
-              </caption>
               <thead>
                 <tr>
                   <th>Interval start</th>
@@ -123,7 +110,6 @@
             <p class="label">02 / Evaluation</p>
             <h2 id="performance-title">Forecast errors</h2>
           </div>
-          <p class="section-note" id="evaluation-note"></p>
         </div>
         <div class="metrics" id="metrics"></div>
         <p class="muted" id="metric-window"></p>
@@ -132,49 +118,54 @@
           <div id="error-bars"></div>
         </div>
       </section>
+      <section class="models" aria-labelledby="models-title">
+        <div class="section-head">
+          <div>
+            <p class="label">03 / Models</p>
+            <h2 id="models-title">Model comparison</h2>
+          </div>
+        </div>
+        <p class="models-intro" id="models-intro"></p>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Role</th>
+                <th>Last 7 days · MAE €/MWh</th>
+                <th>Last 28 days · MAE €/MWh</th>
+              </tr>
+            </thead>
+            <tbody id="models-rows"></tbody>
+          </table>
+        </div>
+      </section>
       <section class="bottom-grid">
         <div id="method">
-          <p class="label">03 / Method</p>
+          <p class="label">04 / Method</p>
           <h2>How forecasts are calculated</h2>
           <p>
-            For each delivery interval, the baseline looks up the same local
-            clock time one day earlier. If that slot is unavailable, it uses
-            the most recent eligible match within 28 days.
-          </p>
-          <p>
-            Official forecasts for delivery before 16 October 2026 used the
-            same time seven days earlier. Over the 2021–2023 and April–June 2026 validation
-            windows the prior-day rule had 28% and 18% lower mean absolute
-            error, so it replaced the weekly rule, which remains the reference
-            for measuring skill.
+            Official forecasts are made by the published model. The model
+            behind each day is named under its chart, and section 03 compares
+            all tracked models on the same days.
           </p>
           <p>
             Official inputs freeze at 10:30 in Vienna on the preceding day.
             Publication is due by 10:45. Daylight-saving changes are handled
             explicitly.
           </p>
-          <p class="method-note">
-            Historical replays use data retrieved later. They demonstrate the
-            pipeline, but do not establish what was known at the time or prove
-            predictive skill. No trained model or uncertainty intervals are
-            available yet.
-          </p>
         </div>
         <div>
-          <p class="label">04 / Operations</p>
+          <p class="label">05 / Operations</p>
           <h2>Latest job results</h2>
           <div id="jobs" class="jobs"></div>
           <p class="muted" id="updated"></p>
-          <p class="muted">
-            Job results describe the latest recorded attempt. They do not
-            confirm that a scheduler is currently running.
-          </p>
         </div>
       </section>
       <section class="pipeline" aria-labelledby="pipeline-title">
         <div class="section-head">
           <div>
-            <p class="label">05 / MLOps loop</p>
+            <p class="label">06 / MLOps loop</p>
             <h2 id="pipeline-title">How a change reaches production</h2>
           </div>
         </div>
@@ -294,13 +285,13 @@
             </text>
             <rect class="loop-inner" x="270" y="232" width="580" height="86" rx="10" />
             <text class="loop-inner-title" x="560" y="261" text-anchor="middle">
-              Planned · the inner model loop
+              The inner model loop
             </text>
             <text class="loop-inner-note" x="560" y="284" text-anchor="middle">
-              Backtest LightGBM candidates against the seasonal baselines,
+              A candidate forecasts in shadow beside the published model,
             </text>
             <text class="loop-inner-note" x="560" y="302" text-anchor="middle">
-              then gate promotion and rollback with MLflow.
+              is promoted only when it passes the check, and can be rolled back.
             </text>
           </svg>
 
@@ -354,24 +345,7 @@
               <span class="tool">Scoring · MAE / RMSE</span>
             </li>
           </ol>
-
-          <figcaption>
-            One turn of the development loop. The two long arrows are the
-            returns that make it a cycle: a reviewed release ships into
-            operation, and measured error comes back as the next change.
-          </figcaption>
         </figure>
-        <p class="muted">
-          Every numbered stage above runs today. CI runs the tests on each push
-          and, on main, builds the image once and pushes it to ECR; the host
-          pulls that exact digest and builds nothing, so what serves a forecast
-          is what CI tested, and rollback is repointing the digest. The dashed
-          box is the model loop, which does not exist yet: no learned model,
-          gated promotion or automatic rollback is running. The deployment
-          scripts themselves still ship as a checksummed tarball through private
-          S3 and SSM. The schedule and latest outcome of each daily job are in
-          section 04.
-        </p>
       </section>
     </main>
     <footer class="wrap foot">

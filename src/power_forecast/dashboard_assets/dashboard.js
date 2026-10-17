@@ -1,7 +1,12 @@
 "use strict";
-const MODEL_NAMES = {
-  "seasonal-daily-v1": "Prior-day baseline",
-  "seasonal-weekly-v1": "Weekly baseline",
+// Model names and descriptions come from the export, so the page never needs
+// editing when a model is promoted or a new candidate starts in shadow.
+const modelName = (id) => data?.models?.catalog?.[id]?.name || id;
+const ROLES = {
+  published: "Published",
+  shadow: "Shadow",
+  reference: "Reference",
+  fallback: "Reference · fallback",
 };
 const $ = (id) => document.getElementById(id);
 const fmt = (value) => (value == null ? "—" : value.toFixed(2));
@@ -53,15 +58,11 @@ $("theme").addEventListener("click", () => {
   theme();
 });
 let data,
-  mode = "replay",
   current,
   curves = [],
   chartGeometry;
-function selectMode(next) {
-  mode = next;
-  curves = data.curves.filter((c) => c.mode === mode);
-  $("live").setAttribute("aria-pressed", String(mode === "live"));
-  $("replay").setAttribute("aria-pressed", String(mode === "replay"));
+function renderDays() {
+  curves = data.curves;
   $("day").replaceChildren(
     ...curves.map((c) => {
       const option = node("option", dayLabel(c.date));
@@ -86,25 +87,19 @@ function renderCurve() {
   $("slot").hidden = empty;
   document.querySelector(".slider-label").hidden = empty;
   $("table-details").hidden = empty;
-  $("empty").textContent =
-    mode === "live"
-      ? "No official forecasts have been published yet. Explore the historical replay while the daily service is being prepared."
-      : "No historical replays are available yet.";
+  $("empty").textContent = "No official forecasts have been published yet.";
   $("curve-caption").textContent = current
-    ? `${dayLabel(current.date)} · ${mode === "replay" ? "Reconstructed replay" : current.status === "late" ? "Official · published late" : "Official forecast"}`
+    ? `${dayLabel(current.date)} · ${current.status === "late" ? "Published late" : "Official forecast"}`
     : "Awaiting the first forecast";
   $("day-facts").replaceChildren();
   $("intervals").replaceChildren();
   $("hover").textContent = "";
   if (!current) return;
+  const fallbacks = current.points.filter((p) => p.fallback).length;
   const facts = [
-    MODEL_NAMES[current.model] || current.model,
-    `${current.points.length} delivery intervals`,
-    `${current.points.filter((p) => p.fallback).length} fallback slots`,
-    `Cutoff ${stamp(current.cutoff_at)}`,
-    current.published_at
-      ? `Published ${stamp(current.published_at)}`
-      : `Replay created ${stamp(current.issued_at)}`,
+    modelName(current.model),
+    ...(fallbacks ? [`${fallbacks} fallback slots`] : []),
+    `Published ${stamp(current.published_at)}`,
   ];
   $("day-facts").replaceChildren(...facts.map((x) => node("span", x)));
   for (const p of current.points) {
@@ -244,10 +239,9 @@ $("chart").addEventListener("pointermove", (e) => {
   );
 });
 function renderMetrics() {
-  // Errors summarise one model: the one behind the newest day in this mode.
+  // Errors summarise one model: the one behind the newest published day.
   const model = curves[0]?.model;
   const scored = curves.filter((c) => c.mae != null && c.model === model),
-    excluded = curves.filter((c) => c.mae != null && c.model !== model).length,
     count = scored.reduce((s, c) => s + c.points.length, 0);
   const mae = count
     ? scored.reduce((s, c) => s + c.mae * c.points.length, 0) / count
@@ -273,15 +267,8 @@ function renderMetrics() {
       return block;
     }),
   );
-  $("evaluation-note").textContent =
-    mode === "replay"
-      ? "Reconstructed history. These results test the pipeline; they are not a held-out model comparison."
-      : "Official forecasts only. Errors are computed against the latest complete archived actual prices.";
   $("metric-window").textContent = scored.length
-    ? `${MODEL_NAMES[model] || model} · ${dayLabel(scored.at(-1).date)} – ${dayLabel(scored[0].date)} · Interval-weighted errors · Latest archived actuals; revisions may change these figures.` +
-      (excluded
-        ? ` ${excluded} earlier ${excluded === 1 ? "day" : "days"} from another model ${excluded === 1 ? "is" : "are"} not included.`
-        : "")
+    ? `${modelName(model)} · ${dayLabel(scored.at(-1).date)} – ${dayLabel(scored[0].date)}`
     : "Metrics appear when complete actual prices are available.";
   const recent = scored.slice(0, 14).reverse(),
     max = Math.max(1, ...recent.map((c) => c.mae));
@@ -305,6 +292,38 @@ function renderMetrics() {
     }),
   );
 }
+function renderModels() {
+  const m = data.models;
+  if (!m) return;
+  const published = m.catalog[m.champion];
+  $("champion-name").textContent = modelName(m.champion);
+  $("champion-text").textContent = published?.description || "";
+  const p = m.policy;
+  const shadow = m.champion !== m.candidate;
+  $("models-intro").textContent =
+    "The published model makes the official forecast. " +
+    (shadow
+      ? "A candidate model forecasts every day in shadow, after the official forecast is published. Its forecasts are not shown in the charts above. "
+      : "No candidate model is in shadow at the moment. ") +
+    `A candidate replaces the published model automatically once its error is at least ${p.min_mae_improvement * 100}% lower on at least ${p.min_common_days} common days, ${p.min_live_shadow_days} of them live, and the improvement is statistically clear.` +
+    (m.champion !== m.fallback
+      ? " If the published model fails on a given day, the fallback model is published instead."
+      : "");
+  $("models-rows").replaceChildren(
+    ...m.rows.map((r) => {
+      const tr = node("tr");
+      const name = node("td", modelName(r.model), "model-name");
+      name.append(node("small", m.catalog[r.model]?.description || ""));
+      tr.append(
+        name,
+        ...[ROLES[r.role], fmt(r.mae_7), fmt(r.mae_28)].map((x) =>
+          node("td", x),
+        ),
+      );
+      return tr;
+    }),
+  );
+}
 function renderStatus() {
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Vienna",
@@ -317,8 +336,8 @@ function renderStatus() {
   $("availability").textContent = stale
     ? `Archive snapshot · Updated ${stamp(data.generated_at)}. This snapshot is older than 20 minutes; check freshness before relying on publication status.`
     : data.tomorrow_available
-      ? `Official forecast available for ${dayLabel(data.tomorrow)}. Select Official forecasts to explore it.`
-      : `No official forecast for ${dayLabel(data.tomorrow)} yet. Historical replays are available below.`;
+      ? `Official forecast available for ${dayLabel(data.tomorrow)}.`
+      : `No official forecast for ${dayLabel(data.tomorrow)} yet.`;
   // A stale export must never announce an old curve as tomorrow's forecast.
   if (data.tomorrow <= today && !stale)
     $("availability").textContent =
@@ -328,7 +347,7 @@ function renderStatus() {
       `Historical dashboard · Exported ${stamp(data.generated_at)}. This version shows archived results. Daily forecasting is not running yet.`;
   else if (!stale && data.scheduler_active && !data.tomorrow_available)
     $("availability").textContent =
-      `Daily jobs are active. Next forecast attempt: ${stamp(data.next_forecast_at)}, for delivery on ${dayLabel(data.next_delivery_date)}. Historical results are available below.`;
+      `Daily jobs are active. Next forecast attempt: ${stamp(data.next_forecast_at)}, for delivery on ${dayLabel(data.next_delivery_date)}.`;
   const names = {
     collect: "Price collection",
     publish: "Forecast publication",
@@ -354,32 +373,22 @@ function renderStatus() {
       return row;
     }),
   );
-  $("updated").textContent =
-    `Dashboard refreshed ${stamp(data.generated_at)}. Times shown in Europe/Vienna.`;
+  $("updated").textContent = `Dashboard updated ${stamp(data.generated_at)}.`;
 }
 $("day").addEventListener("change", renderCurve);
-$("live").addEventListener("click", () => selectMode("live"));
-$("replay").addEventListener("click", () => selectMode("replay"));
 async function load() {
   try {
     const response = await fetch("dashboard.json", { cache: "no-store" });
     if (!response.ok) throw Error("unavailable");
     data = await response.json();
-    selectMode(
-      data.tomorrow_available
-        ? "live"
-        : data.curves.some((c) => c.mode === "replay")
-          ? "replay"
-          : "live",
-    );
+    renderModels();
+    renderDays();
     renderStatus();
   } catch {
     $("availability").textContent =
       "The dashboard data is unavailable. Please try again shortly.";
     $("curve-caption").textContent = "Data unavailable";
     $("day").disabled = true;
-    $("live").disabled = true;
-    $("replay").disabled = true;
     $("slot").hidden = true;
   }
 }

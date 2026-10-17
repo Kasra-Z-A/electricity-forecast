@@ -16,6 +16,19 @@ MODELS = {"seasonal-weekly-v1": WEEKLY_LAGS, "seasonal-daily-v1": DAILY_LAGS}
 # Daily replaced weekly on 2026-10-14 after the validation backtest
 # (reports/backtest_baselines.json); weekly stays the skill reference.
 PRODUCTION_MODEL = "seasonal-daily-v1"
+# Public names and descriptions; the dashboard shows these and never names models itself.
+MODEL_INFO = {
+    "seasonal-daily-v1": {
+        "name": "Prior-day baseline",
+        "description": "Uses the price at the same local time on the previous day. If that "
+        "slot is missing, it uses the most recent matching slot within 28 days.",
+    },
+    "seasonal-weekly-v1": {
+        "name": "Weekly baseline",
+        "description": "Uses the price at the same local time seven days earlier. It is the "
+        "reference for measuring skill.",
+    },
+}
 
 
 def slot_lookup(snapshots) -> dict:

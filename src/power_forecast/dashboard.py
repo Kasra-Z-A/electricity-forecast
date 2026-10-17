@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from power_forecast.history import atomic_json, load_version
+from power_forecast.promotion import monitoring
 from power_forecast.timegrid import VIENNA, forecast_cutoff
 
 
@@ -30,17 +31,14 @@ def dashboard_data(data_dir: Path, now: datetime | None = None) -> dict:
         digest = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
         if digest != run["run_id"]:
             raise ValueError("Cannot export a forecast with an invalid checksum.")
-        is_official = run["run_id"] in official
-        if not is_official and run["mode"] != "reconstructed_replay":
+        # Every artifact is checksum-verified, but only official forecasts are shown.
+        if run["run_id"] not in official:
             continue
-        if is_official and run["mode"] != "live":
+        if run["mode"] != "live":
             raise ValueError("An official publication must reference a live forecast.")
-        mode = "live" if is_official else "replay"
-        key = (mode, run["delivery_date"])
-        if key not in selected or run["issued_at"] > selected[key]["issued_at"]:
-            selected[key] = run
+        selected[run["delivery_date"]] = run
     curves = []
-    for (mode, day), run in sorted(selected.items(), reverse=True):
+    for day, run in sorted(selected.items(), reverse=True):
         actual = {}
         retrieved = None
         checkpoint = data_dir / "prices/days" / f"{day}.json"
@@ -61,16 +59,15 @@ def dashboard_data(data_dir: Path, now: datetime | None = None) -> dict:
         ]
         errors = [p["forecast"] - p["actual"] for p in points if p["actual"] is not None]
         complete = len(errors) == len(points) and bool(points)
-        publication = official.get(run["run_id"], {})
+        publication = official[run["run_id"]]
         curves.append(
             {
                 "date": day,
-                "mode": mode,
                 "model": run["model"],
                 "issued_at": run["issued_at"],
                 "cutoff_at": run["cutoff_at"],
-                "published_at": publication.get("published_at"),
-                "status": publication.get("status", "replay"),
+                "published_at": publication["published_at"],
+                "status": publication["status"],
                 "actual_retrieved_at": retrieved,
                 "points": points,
                 "mae": sum(abs(e) for e in errors) / len(errors) if complete else None,
@@ -98,7 +95,8 @@ def dashboard_data(data_dir: Path, now: datetime | None = None) -> dict:
         "scheduler_checked_at": scheduler.get("checked_at"),
         "next_forecast_at": forecast_cutoff(next_delivery).isoformat(),
         "next_delivery_date": str(next_delivery),
-        "tomorrow_available": any(c["mode"] == "live" and c["date"] == tomorrow for c in curves),
+        "tomorrow_available": any(c["date"] == tomorrow for c in curves),
+        "models": monitoring(data_dir),
     }
 
 

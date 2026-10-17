@@ -16,10 +16,10 @@ import json
 from datetime import date, datetime
 from pathlib import Path
 
-from power_forecast.baseline import PRODUCTION_MODEL
+from power_forecast.baseline import MODEL_INFO, PRODUCTION_MODEL
 from power_forecast.history import atomic_json, load_version
 from power_forecast.ingestion.entsoe import SourceError
-from power_forecast.lifecycle import CANDIDATE, pointer_path, reference_forecast
+from power_forecast.lifecycle import CANDIDATE, CANDIDATE_INFO, pointer_path, reference_forecast
 from power_forecast.metrics import _errors, _point_metrics, paired_comparison
 
 WEEKLY = "seasonal-weekly-v1"
@@ -56,15 +56,18 @@ def _load_run(path: Path) -> dict:
     return run
 
 
-def _forecast_path(data_dir: Path, model: str, day: date) -> Path | None:
-    """The official forecast if `model` published it, else its shadow or replay."""
+def _forecast_path(data_dir: Path, model: str, day: date, replay: bool = True) -> Path | None:
+    """The official forecast if `model` published it, else its shadow or replay.
+
+    With `replay`, a missing seasonal baseline is replayed from vintage versions.
+    """
     official = data_dir / "official" / f"{day}.json"
     if official.exists():
         path = data_dir / json.loads(official.read_text())["forecast_path"]
         if _load_run(path)["model"] == model:
             return path
     pointer = pointer_path(data_dir, model, day)
-    if not pointer.exists() and model in (PRODUCTION_MODEL, WEEKLY):
+    if replay and not pointer.exists() and model in (PRODUCTION_MODEL, WEEKLY):
         try:
             reference_forecast(day, data_dir, model)
         except SourceError:
@@ -183,3 +186,60 @@ def rollback(data_dir: Path, now: datetime, reason: str) -> dict:
     }
     _record(data_dir, event, current["previous"])
     return event
+
+
+def _actuals(data_dir: Path, day: date) -> dict | None:
+    checkpoint = data_dir / "prices" / "days" / f"{day}.json"
+    if not checkpoint.exists():
+        return None
+    _, rows = load_version(data_dir, json.loads(checkpoint.read_text()))
+    return {row.start.isoformat(): row.eur_mwh for row in rows}
+
+
+def monitoring(data_dir: Path) -> dict:
+    """Read-only model comparison for the dashboard: recent errors on common days.
+
+    Only days on which the candidate and both seasonal baselines all have a forecast
+    and complete actuals are used, so every row of a window covers the same days.
+    """
+    current = champion(data_dir)["model"]
+    models = (CANDIDATE["name"], PRODUCTION_MODEL, WEEKLY)
+    days = {date.fromisoformat(p.stem) for p in (data_dir / "official").glob("*.json")}
+    days |= {
+        date.fromisoformat(p.stem)
+        for p in (data_dir / "shadow" / "days" / CANDIDATE["name"]).glob("*.json")
+    }
+    common = []
+    for day in sorted(days, reverse=True):
+        actual = _actuals(data_dir, day)
+        paths = [_forecast_path(data_dir, m, day, replay=False) for m in models]
+        if actual is None or None in paths:
+            continue
+        try:
+            errors = [_day_errors(data_dir, path, actual) for path in paths]
+        except SourceError:
+            continue  # actuals incomplete or a grid mismatch: not comparable
+        common.append((day, errors))
+        if len(common) == 28:
+            break
+    rows = []
+    for index, model in enumerate(models):
+        if model == current:
+            role = "published"
+        elif model == CANDIDATE["name"]:
+            role = "shadow"
+        else:
+            role = "fallback" if model == PRODUCTION_MODEL else "reference"
+        row = {"model": model, "role": role}
+        for window in (7, 28):
+            chosen = [errors[index] for _, errors in common[:window]]
+            row[f"mae_{window}"] = _point_metrics(_errors(chosen))["mae"] if chosen else None
+        rows.append(row)
+    return {
+        "champion": current,
+        "candidate": CANDIDATE["name"],
+        "fallback": PRODUCTION_MODEL,
+        "catalog": MODEL_INFO | {CANDIDATE["name"]: CANDIDATE_INFO},
+        "policy": POLICY,
+        "rows": rows,
+    }

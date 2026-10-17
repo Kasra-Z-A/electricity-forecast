@@ -1,5 +1,5 @@
 import json
-from datetime import date, timedelta
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
@@ -22,20 +22,19 @@ def test_empty_archive_exports_complete_site(tmp_path):
     assert all(j["status"] == "not_started" for j in data["jobs"])
 
 
-def test_replay_metrics_and_public_export(tmp_path):
-    day = date(2026, 9, 13)
-    seed(tmp_path, day - timedelta(days=7))
-    forecast(day, tmp_path, replay=True)
-    seed(tmp_path, day)
-    data = dashboard_data(tmp_path)
+def test_official_metrics_and_public_export(tmp_path):
+    eligible_history(tmp_path)
+    forecast(DAY, tmp_path, replay=True)  # replays are never shown
+    with patch("power_forecast.operations.utcnow", return_value=CUTOFF):
+        run_job("publish", tmp_path, DAY)
+    seed(tmp_path, DAY)
+    data = dashboard_data(tmp_path, CUTOFF)
     assert len(data["curves"]) == 1
     curve = data["curves"][0]
-    assert curve["mode"] == "replay"
-    assert curve["mae"] == curve["rmse"] == 0
-    assert len(curve["points"]) == 96
+    assert curve["status"] == "on_time"
+    assert curve["mae"] is not None and len(curve["points"]) == 96
     assert "raw_sha256" not in json.dumps(data)
     assert "forecast_path" not in json.dumps(data)
-    assert not data["tomorrow_available"]
 
 
 def test_only_official_live_forecasts_and_freshness(tmp_path):
@@ -62,16 +61,6 @@ def test_corruption_preserves_previous_export(tmp_path):
     with pytest.raises(ValueError, match="checksum"):
         build_dashboard(tmp_path)
     assert (output / "dashboard.json").read_bytes() == previous
-
-
-def test_dst_and_no_duplicate_days(tmp_path):
-    day = date(2025, 10, 26)
-    seed(tmp_path, day - timedelta(days=7))
-    forecast(day, tmp_path, replay=True, now=CUTOFF)
-    forecast(day, tmp_path, replay=True, now=CUTOFF + timedelta(seconds=1))
-    data = dashboard_data(tmp_path)
-    assert len(data["curves"]) == 1
-    assert len(data["curves"][0]["points"]) == 100
 
 
 def test_export_job_and_private_error_details(tmp_path):
