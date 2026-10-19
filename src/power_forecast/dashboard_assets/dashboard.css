@@ -517,6 +517,44 @@ td {
   .day-facts {
     gap: 0.5rem 1rem;
   }
+  /* Each model becomes a block: name and description on top, then role and
+     errors side by side, so the numbers stay on screen without scrolling. */
+  section.models thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  section.models table,
+  section.models tbody {
+    display: block;
+  }
+  section.models tr {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem 1rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  section.models td {
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+  section.models .model-name {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+  section.models td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.2rem;
+    font:
+      0.625rem "JetBrains Mono Variable",
+      monospace;
+    color: var(--muted);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -625,8 +663,7 @@ td {
   font-size: 12px;
 }
 
-/* The list is the narrow-screen rendering and the accessible text at every
-   width: the drawing is aria-hidden, so this is what a screen reader reads. */
+/* The drawing is aria-hidden, so this list is what a screen reader reads. */
 .loop-list {
   list-style: none;
   margin: 0;
@@ -651,61 +688,10 @@ td {
   color: var(--muted);
 }
 
+/* On phones the drawing is scaled down whole rather than rebuilt, so the
+   loop keeps its shape; the panel padding shrinks to give it the full width. */
 @media (max-width: 860px) {
-  .loop-svg {
-    display: none;
-  }
-  .loop-list {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip-path: none;
-    white-space: normal;
-    display: grid;
-    gap: 1.6rem;
-  }
-  /* A left rail with a dot per stage, so the sequence still reads as one
-     continuous run rather than eight unrelated cards. */
-  .loop-list li {
-    position: relative;
-    padding-left: 1.6rem;
-    border-left: 1.5px solid var(--rust);
-  }
-  .loop-list li::before {
-    content: "";
-    position: absolute;
-    left: -5px;
-    top: 0.35rem;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--rust);
-  }
-  .loop-list li:last-child {
-    border-left-style: dashed;
-  }
-  .loop-list .planned-stage {
-    border-left-style: dashed;
-    border-left-color: var(--muted);
-  }
-  .loop-list .planned-stage::before {
-    background: var(--muted);
-  }
-  .loop-list h3 {
-    font-family: "Inter Variable", sans-serif;
-    font-size: 0.9rem;
-    font-weight: 600;
-    line-height: 1.4;
-    letter-spacing: normal;
-    margin: 0.2rem 0 0.3rem;
-  }
-  .loop-list p {
-    font-size: 0.75rem;
-    color: var(--ink-soft);
-    margin-bottom: 0.35rem;
-  }
   .loop {
-    padding: 1rem;
+    padding: 0.6rem;
   }
 }

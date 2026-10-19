@@ -316,9 +316,15 @@ function renderModels() {
       name.append(node("small", m.catalog[r.model]?.description || ""));
       tr.append(
         name,
-        ...[ROLES[r.role], fmt(r.mae_7), fmt(r.mae_28)].map((x) =>
-          node("td", x),
-        ),
+        ...[
+          [ROLES[r.role], "Role"],
+          [fmt(r.mae_7), "7-day MAE"],
+          [fmt(r.mae_28), "28-day MAE"],
+        ].map(([x, label]) => {
+          const td = node("td", x);
+          td.dataset.label = label;
+          return td;
+        }),
       );
       return tr;
     }),
