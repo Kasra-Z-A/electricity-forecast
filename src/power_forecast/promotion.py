@@ -1,4 +1,4 @@
-"""The champion pointer, the automatic promotion gate and rollback (PLAN.md section 8).
+"""The champion pointer, the automatic promotion gate and rollback (docs/DESIGN.md, Evaluation and promotion).
 
 `models/champion.json` names the model whose forecast is published; without it the
 seasonal baseline is champion. Settle evaluates the candidate after scoring. When
@@ -23,7 +23,7 @@ from power_forecast.lifecycle import CANDIDATE, CANDIDATE_INFO, pointer_path, re
 from power_forecast.metrics import _errors, _point_metrics, paired_comparison
 
 WEEKLY = "seasonal-weekly-v1"
-# Engineering defaults from PLAN.md section 8, not scientific constants.
+# Engineering defaults from docs/DESIGN.md, not scientific constants.
 POLICY = {
     "min_common_days": 28,
     "min_live_shadow_days": 14,

@@ -1,6 +1,6 @@
 """Score the frozen M6 candidate once on the untouched native holdout.
 
-The holdout is consulted a single time (PLAN.md section 8): the script refuses to
+The holdout is consulted a single time (docs/DESIGN.md, Evaluation and promotion): the script refuses to
 run if its report already exists, and evaluates only configs/candidate.json against
 the seasonal baselines, so no choice can be made on these days. Run from the
 repository root with the research group:

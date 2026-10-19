@@ -1,4 +1,4 @@
-"""Point-in-time feature rows for learned models (PLAN.md section 7).
+"""Point-in-time feature rows for learned models (docs/DESIGN.md, Models).
 
 Every value for delivery day D comes from days whose result was available at D's
 cutoff, found through the same local clock-slot matching the baselines use.
@@ -33,7 +33,7 @@ FEATURES = (
     "prev_max",
     "week_mean",
 )
-# Optional covariate groups, each added alone in an ablation (PLAN.md section 7).
+# Optional covariate groups, each added alone in an ablation (docs/DESIGN.md, Models).
 COVARIATES = {
     "de_lu": ("de_lag_1", "de_lag_7", "de_prev_mean", "spread_prev_mean"),
     "weather": ("wx_temperature", "wx_wind_100m", "wx_solar", "wx_solar_day"),

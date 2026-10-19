@@ -61,7 +61,7 @@ Timers are not active yet. See [the runbook](OPERATIONS.md) for current status.
 ## M4 covariate eligibility audit (2026-10-15)
 
 Each candidate input is classified by when it is guaranteed to exist relative to the
-10:30 Vienna cutoff on D-1 (PLAN.md section 4). A legal publication deadline is an
+10:30 Vienna cutoff on D-1 ([design](DESIGN.md#point-in-time-data-rules)). A legal publication deadline is an
 upper bound, not proof of when a value first appeared; historical first-seen times
 are unknown for everything downloaded today.
 

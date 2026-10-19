@@ -1,7 +1,7 @@
 """Ablation: does one covariate group improve the price-only models?
 
 The group is added alone to the same model and training window on the same
-validation days (PLAN.md section 7). Holdout folds are not evaluated. Run from the
+validation days (docs/DESIGN.md, Models). Holdout folds are not evaluated. Run from the
 repository root once the group's archive is complete:
     uv run power-forecast backfill-prices 2018-10-01 2026-10-15 --zone DE-LU --window-days 31
     uv run --group research python experiments/ablation.py de_lu

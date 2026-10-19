@@ -19,7 +19,7 @@ from power_forecast.ingestion.entsoe import SourceError
 
 ENDPOINT = "https://single-runs-api.open-meteo.com/v1/forecast"
 MODEL = "ecmwf_ifs"
-# Regional proxies from PLAN.md section 5, not a capacity-weighted grid.
+# Regional proxies from docs/DESIGN.md, not a capacity-weighted grid.
 LOCATIONS = {
     "vienna": (48.21, 16.37),
     "graz": (47.07, 15.44),

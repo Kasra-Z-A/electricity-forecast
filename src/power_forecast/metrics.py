@@ -1,4 +1,4 @@
-"""Evaluation metrics shared by every model family (PLAN.md section 8).
+"""Evaluation metrics shared by every model family (docs/DESIGN.md, Evaluation and promotion).
 
 Quarter-hours within a day are not independent evidence, so uncertainty in a model
 comparison comes from a week-block bootstrap of paired daily loss differences.

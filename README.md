@@ -1,50 +1,40 @@
 # Austrian Day-Ahead Electricity Price Forecasting
 
-A production ML portfolio project for forecasting Austrian SDAC electricity prices
-before the day-ahead auction: reproducible ingestion, point-in-time features,
-rolling backtests, scheduled batch forecasts, serving and monitored model promotion.
+Every morning this system forecasts the next day's Austrian day-ahead electricity
+prices before the auction, keeps exactly what it knew when it did so, and scores
+each forecast once the auction result is published. It is built as a production
+ML system: point-in-time inputs, rolling backtests on frozen windows, scheduled
+batch jobs, a shadow candidate with an automatic promotion gate, and rollback.
 
-**Status:** resumable price ingestion, seasonal baseline forecasts and scoring are
-implemented. ENTSO-E authentication and live historical/DST samples passed.
-36 delivery days, including historical transition samples, are cached on the server; the full 2018-onward archive is not yet downloaded.
-Batch collection, official publication, scoring and watchdog jobs are implemented,
-with Docker/Compose and Linux timer templates. Timers are active on EC2; database
-serving and learned models remain planned. A read-only dashboard matching the
-portfolio website is implemented for the first deployment.
+Live dashboard: https://power.kasra.page
 
-Read the [full implementation plan](docs/PLAN.md) for the architecture, data contracts,
-modeling strategy, evaluation gates, milestones and first implementation batch.
+- **Target:** native 15-minute Austrian SDAC prices; older hourly history is a
+  separate research track.
+- **Timing:** inputs freeze at 10:30 Europe/Vienna on the day before delivery;
+  publication is due by 10:45.
+- **Production model:** the prior-day seasonal baseline. A ridge model runs in
+  shadow beside it and is promoted automatically once it passes the gate.
+- **Infrastructure:** Docker batch jobs under systemd timers on one EC2 host,
+  images built in CI and pulled by digest, a static dashboard on S3 + CloudFront.
 
-The production target is native 15-minute prices. Older hourly history is a separate
-research track. Inputs freeze at 10:30 Europe/Vienna on the day before delivery;
-publication is due by 10:45. The first release uses seasonal baselines, then evaluates
-LightGBM and optional covariates against the same observations.
+How it is built and why: [docs/DESIGN.md](docs/DESIGN.md). Running and recovering
+it: [docs/OPERATIONS.md](docs/OPERATIONS.md). Source checks:
+[docs/SOURCE_AUDIT.md](docs/SOURCE_AUDIT.md).
 
-## Local setup
+## Status
 
-Python 3.12 and uv are the intended development tools. Dependencies are pinned in uv.lock.
+| Milestone | State |
+|---|---|
+| M0–M1: source audit, archive, baselines, scoring | Done |
+| M2: scheduled daily operation and dashboard | Done: 28 consecutive on-time scheduled forecasts by 2026-10-14 ([report](reports/m2_observation_2026-10-14.json)); host outage drill deferred |
+| M3: frozen splits, backtests of baselines, ridge and LightGBM | Done |
+| M4: covariate audit, ablations, calibrated P10/P50/P90 | Backtested; not in production |
+| M5: database, API, hardening | Deferred until a concrete need appears |
+| M6: shadow candidate, automatic promotion, rollback | Running: shadow, gate and dashboard comparison are live |
+| M8: comparison of model families on weather and load-forecast inputs | Planned |
+| M7: portfolio release with operational report | After M6 and M8 |
 
-```bash
-uv sync
-# Only if .env does not already exist:
-cp -n .env.example .env
-# Set ENTSOE_API_KEY locally in .env; never commit it.
-```
-
-## Implementation sequence
-
-1. Validate API access, source metadata and DST-aware interval grids.
-2. Archive prices, generate baseline forecasts and score them end to end.
-3. Schedule daily collection and preserve input snapshots.
-4. Backtest models, audit optional features and evaluate uncertainty.
-5. Expand the early dashboard with a full API, database, backups and monitoring.
-6. Add shadow evaluation, gated promotion and rollback; publish measured results.
-
-See the [milestones and acceptance gates](docs/PLAN.md#10-milestones-and-acceptance-gates).
-An eight-day reconstructed baseline smoke test produced MAE **34.84 EUR/MWh**
-and RMSE **48.72 EUR/MWh** over 768 intervals (September 6–13, 2026). This verifies
-the pipeline; it is not a held-out model comparison or evidence of predictive skill.
-See [the report](reports/baseline_smoke.json). Deployment templates exist; daily jobs are deployed on EC2.
+## Results
 
 **Validation backtest (M3).** Weekly-refit rolling origins on frozen windows, MAE in
 EUR/MWh, holdouts untouched ([report](reports/backtest_models.json)):
@@ -63,6 +53,12 @@ intervals clear of zero. LightGBM does not beat ridge, and on native data its
 interval against prior-day crosses zero. Native validation is only 91 days.
 Inputs are archived versions retrieved in September 2026, not past vintages.
 
+**Holdout.** The candidate `ridge-core-180-v1` ([config](configs/candidate.json)) was
+frozen before the native holdout (July–August 2026) was consulted, once: MAE 21.35
+against 25.70 for prior-day, 17% skill, with a week-block interval clear of zero
+([report](reports/holdout_native.json)). The holdout is now spent; further evidence
+comes from shadow operation.
+
 **Uncertainty (M4).** P10/P90 ranges, nominal 80% coverage, on the same validation
 days ([report](reports/backtest_quantiles.json)):
 
@@ -75,11 +71,12 @@ days ([report](reports/backtest_quantiles.json)):
 Raw quantile models are overconfident; conformal calibration on held-back training
 days restores average coverage and gives the lowest P10/P90 pinball loss. Coverage
 still varies by time of day: on native data the conformalized interval covers about
-70% at midday and over 90% at night, so a single width does not fit every hour. Calibrating the conformal offset per local
-hour, a variant designed after seeing these results, narrows the hourly spread of
-native coverage from 68–94% to 79–86% at about 4% more width; for ridge it lowers
-coverage, because 28 held-back days per hour are too few for the tails. The per-hour
-variant needs a fresh forward window before it counts as evidence.
+70% at midday and over 90% at night, so a single width does not fit every hour.
+Calibrating the conformal offset per local hour, a variant designed after seeing
+these results, narrows the hourly spread of native coverage from 68–94% to 79–86% at
+about 4% more width; for ridge it lowers coverage, because 28 held-back days per
+hour are too few for the tails. The per-hour variant needs a fresh forward window
+before it counts as evidence.
 
 **DE-LU ablation (M4).** Adding lagged German prices (D-1 and D-7 slots, previous-day
 mean and AT–DE spread) to the same models and windows changed validation MAE by at
@@ -102,105 +99,82 @@ hindcasts), ECMWF changed model cycle on 2026-05-12 inside the fold, and one day
 a defective run (2026-06-24) is excluded from both sides. Production use needs
 forward-archived runs first.
 
-## Sources
+## Roadmap
 
-- [ENTSO-E Transparency Platform](https://transparency.entsoe.eu): auction prices
-  and candidate load/renewable forecasts.
-- [Open-Meteo](https://open-meteo.com/en/docs/historical-forecast-api): optional
-  weather forecasts, subject to model-run and publication-time verification.
+- **M8:** backfill longer weather-forecast history, add the Austrian load forecast,
+  and compare LEAR, LightGBM, a DNN, NBEATSx, a zero-shot pretrained time-series
+  model and an ensemble on the same frozen folds; the winner becomes the next
+  shadow candidate.
+- Replay the candidate on the host archive and run a rollback drill there.
+- Per-hour interval calibration on a fresh forward window.
+- Later, only when needed: a host outage drill with external alerts, a read-only
+  API, and PostgreSQL once a second service writes state.
 
-Source references and historical-data limitations are documented in the plan.
+## Local setup
 
-## Available commands
-
-Run commands from the project root. Put the token after `ENTSOE_API_KEY=` in `.env`.
-Environment variables override `.env` values.
+Python 3.12 and [uv](https://docs.astral.sh/uv/). Dependencies are pinned in `uv.lock`.
 
 ```bash
-uv run power-forecast doctor
-uv run power-forecast ingest-prices 2026-09-13
+uv sync
+cp -n .env.example .env   # then set ENTSOE_API_KEY; never commit it
+uv run power-forecast doctor        # checks configuration without contacting ENTSO-E
 uv run --group research pytest -q
 uv run ruff check src tests experiments
 ```
 
-`doctor` checks configuration without contacting ENTSO-E. `ingest-prices` refreshes
-one Vienna delivery day. Raw XML and retrieval manifests live in `data/raw/entsoe/`;
-validated versions in `data/prices/versions/`; atomic daily checkpoints in
-`data/prices/days/`. Earlier `data/normalized/prices/` samples are preserved but are
-not used by the versioned pipeline. All downloaded data and forecast artifacts are
-ignored by Git.
+Environment variables override `.env` values. Downloaded data and forecast artifacts
+live under `data/` and are ignored by Git.
 
-### Backfill and resume
+### Archive prices
 
 ```bash
+uv run power-forecast ingest-prices 2026-09-13          # one Vienna delivery day
 # START inclusive, END exclusive. Completed days are checked and skipped.
 uv run power-forecast backfill-prices 2026-08-16 2026-09-14
-# Re-download explicitly to capture revisions:
-uv run power-forecast backfill-prices 2026-09-12 2026-09-14 --refresh
-# Full AT history, if desired; this makes one request per uncached day:
-uv run power-forecast backfill-prices 2018-10-01 2026-09-14
+uv run power-forecast backfill-prices 2026-09-12 2026-09-14 --refresh   # capture revisions
+uv run power-forecast backfill-prices 2018-10-01 2026-09-14             # full AT history
 ```
 
-The first implementation uses daily partitions rather than monthly requests to
-isolate source failures. It stops on an invalid day and resumes from the same day
-on the next invocation. CLI writers share an OS file lock; overlapping jobs fail visibly and can be retried.
-An interrupted write cannot advance the completed-day checkpoint. A checksum error
-fails visibly; use `--refresh` to repair a cached partition with a new download.
+Raw XML and retrieval manifests go to `data/raw/entsoe/`, validated versions to
+`data/prices/versions/` and atomic daily checkpoints to `data/prices/days/`. Backfill
+stops on an invalid day and resumes from it on the next run; an interrupted write
+cannot advance the checkpoint, and a checksum error is repaired with `--refresh`.
+The adapter supports A01 and A03 curves, selects SDAC sequence 1 when present,
+collapses identical duplicate rows and rejects conflicting overlaps. Negative prices
+are valid.
 
 ### Forecast and score
 
 ```bash
 uv run power-forecast forecast 2026-09-13 --replay
-# Pass the forecast file path printed by the preceding command:
-uv run power-forecast score data/forecasts/RUN_ID.json
-# Reproduce the eight-day smoke report:
-uv run python experiments/baseline_smoke.py
+uv run power-forecast score data/forecasts/RUN_ID.json   # path printed by forecast
 ```
 
-The research reports need the full archive and the `research` dependency group
-(numpy, scikit-learn, LightGBM; macOS also needs `brew install libomp`). Production
-never installs that group:
+Without `--replay`, a forecast runs only after its 10:30 cutoff, using input versions
+retrieved by then; `--replay` labels reconstructed history and possible revision
+bias. Forecasts record their input checksums, code and lock hashes, cutoff, issue
+time, source slots and fallback use. The standalone `forecast` command writes
+diagnostic artifacts only; `job publish` writes the official forecast. Scoring pins
+the complete actual-price snapshot it used, and a later revision creates a separate
+score.
+
+### Research reports
+
+These need the full archive and the `research` dependency group (numpy,
+scikit-learn, LightGBM; macOS also needs `brew install libomp`). Production never
+installs that group.
 
 ```bash
 uv run python experiments/coverage_report.py
 uv run python experiments/freeze_splits.py
 uv run python experiments/backtest_baselines.py
-uv run --group research python experiments/backtest_models.py  # about 10 minutes
+uv run --group research python experiments/backtest_models.py     # about 10 minutes
 uv run --group research python experiments/backtest_quantiles.py  # about 20 minutes
 uv run power-forecast backfill-weather 2025-10-01 2026-10-18
 uv run --group research python experiments/ablation.py weather
 ```
 
-Without `--replay`, a forecast runs only after its 10:30 Vienna cutoff, using input
-versions retrieved by that cutoff. Runs after 10:45 are marked late. Historical data
-retrieved today cannot qualify as historical live inputs. `--replay` explicitly
-labels reconstructed history and possible revision bias. Forecasts record their
-input checksums, code/lock hashes, cutoff, issue time, source slots and fallback use.
-The `job publish` command adds an atomic official publication pointer; the standalone
-`forecast` command produces diagnostic artifacts only. Scheduler templates are available
-and are active on the EC2 host.
-
-The production baseline (`seasonal-daily-v1`) matches the previous day's local clock
-slot, prefers the same DST fold, then falls back to the most recent eligible matching slot within 28 days. Hourly
-source values used for quarter-hour forecasts are labeled `hourly_derived`; they
-are never converted into observed quarter-hour training labels. No eligible history
-means no forecast artifact. Uncertainty intervals are not implemented yet.
-Official forecasts for delivery before October 16, 2026 used the weekly slot
-(`seasonal-weekly-v1`). On the frozen validation windows the prior-day rule had
-28% (hourly, 2021–2023) and 18% (native, April–June 2026) lower MAE, with week-block
-95% intervals clear of zero; see [the backtest](reports/backtest_baselines.json).
-The weekly rule remains the reference for skill.
-
-Scoring pins the current complete actual-price snapshot and retains its checksum;
-missing actuals produce a pending diagnostic. A later revision creates a separate
-score artifact, leaving the previous result intact. Storage is currently local JSON
-with atomic writes; DuckDB analytical storage remains a subsequent milestone task.
-
-The adapter supports A01 and A03 curves, selects SDAC sequence 1 when present,
-collapses identical duplicate rows and rejects conflicting overlaps. Negative prices
-are valid. See [the source audit](docs/SOURCE_AUDIT.md).
-
-## Daily jobs
+### Daily jobs
 
 ```bash
 uv run power-forecast job collect
@@ -209,28 +183,38 @@ uv run power-forecast job settle
 uv run power-forecast job watchdog
 ```
 
-These default to tomorrow in Vienna. Publication is restricted to 10:30–11:00 on
-the preceding day, with immutable cutoff inputs and a 10:45 on-time deadline.
-Retries reuse the official forecast. All attempts and latest job outcomes are saved
-under `data/operations/`. See [the operations runbook](docs/OPERATIONS.md) for
-schedules, container setup, recovery and outstanding deployment acceptance checks.
+They default to tomorrow in Vienna. Publication is allowed from 10:30 to 11:00 on the
+day before, with a 10:45 on-time deadline, and retries reuse the official forecast.
+Schedules, container setup and recovery are in [the runbook](docs/OPERATIONS.md).
 
-## Dashboard
+### Dashboard
 
 ```bash
-uv run power-forecast dashboard --serve
-# Open http://127.0.0.1:8080
+uv run power-forecast dashboard --serve   # http://127.0.0.1:8080
 ```
 
-The dashboard uses the portfolio’s colors, locally hosted fonts and light/dark themes.
-It shows forecast/actual curves, day selection, interval details, MAE/RMSE, daily
-errors and recorded job status. Historical replays and official forecasts stay
-separate. Missing live forecasts and stale exports are explicitly identified.
+The dashboard shows forecast and actual curves, day selection, interval details,
+MAE/RMSE, daily errors, the model comparison and recorded job status, in the
+portfolio site's design with self-hosted fonts and light/dark themes. The export
+contains public fields only; replays and shadow forecasts never appear in its
+charts.
 
-`dashboard` exports only public fields into `data/dashboard/`; `--serve` starts a
-localhost development preview. Re-run the export after new data arrives. Production
-uses the `job dashboard` timer and the read-only Nginx service in Compose. See
-[dashboard deployment](docs/OPERATIONS.md#dashboard). The historical dashboard is hosted at https://power.kasra.page using S3 and
-CloudFront. Daily jobs are active on EC2. The first official forecast is scheduled for
-September 17 at 10:30 Vienna, for delivery on September 18, 2026. See the public deployment section in the
-runbook for manual updates.
+## Repository layout
+
+```text
+src/power_forecast/   package: ingestion, time grid, baselines, ridge, scoring,
+                      operations, lifecycle and promotion, dashboard export
+experiments/          reproducible research entry points
+configs/              frozen splits, model settings and the current candidate
+reports/              checksummed results of backtests, ablations and checks
+deploy/               Compose files, systemd units and host scripts
+docs/                 design, operations runbook, source audit
+tests/                offline tests with sanitised fixtures
+```
+
+## Data sources
+
+- [ENTSO-E Transparency Platform](https://transparency.entsoe.eu): auction prices
+  and load/renewable forecasts.
+- [Open-Meteo](https://open-meteo.com): ECMWF IFS single-run weather forecasts,
+  CC BY 4.0.
