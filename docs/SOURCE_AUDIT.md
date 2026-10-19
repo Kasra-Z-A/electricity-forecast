@@ -58,7 +58,7 @@ Retrieval time is recorded and is never substituted for historical publication t
 atomic official publication pointer, watchdog and scheduler templates are implemented.
 Timers are not active yet. See [the runbook](OPERATIONS.md) for current status.
 
-## M4 covariate eligibility audit (2026-10-15)
+## Covariate eligibility audit (2026-10-15)
 
 Each candidate input is classified by when it is guaranteed to exist relative to the
 10:30 Vienna cutoff on D-1 ([design](DESIGN.md#point-in-time-data-rules)). A legal publication deadline is an

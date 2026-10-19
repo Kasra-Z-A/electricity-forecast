@@ -208,15 +208,15 @@ CloudFront after each job and marks itself stale when exports stop.
 
 - **Native 15-minute target, hourly history kept separate.** Native history is
   short, but expanding hourly prices into quarter-hours would invent observations.
-- **A fixed 10:30 cutoff.** It is a project choice, not a market rule, and may move
-  later for data availability, but it stays before the 12:00 gate closure.
+- **A fixed 10:30 cutoff.** It is a project choice, not a market rule, and leaves
+  margin before the 12:00 gate closure.
 - **Evidence classes for every input.** A value counts only if it can be shown to
   have existed before the cutoff, so no backtest quietly uses data the live system
   would not have had.
 - **JSON files and one lock instead of a database.** One job writes at a time, so
-  a database adds operations work without solving a real problem yet.
+  a database adds operations work without solving a real problem.
 - **A static dashboard instead of an API.** The dashboard already publishes its data
-  as JSON; a documented API waits until someone needs forecasts programmatically.
+  as JSON, which is enough for one public page.
 - **Images built once in CI, pulled by digest.** The host never builds; what runs is
   exactly what CI tested, and rollback is repointing a digest.
 - **Ridge as the first learned candidate.** On validation it beat LightGBM on

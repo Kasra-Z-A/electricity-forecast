@@ -58,7 +58,7 @@ Collection also downloads any day missing from the candidate's 180-day training
 window (plus two weeks of lag history), a month per request; once filled it requests
 nothing. Failures are reported under `training_history` and never fail collection.
 
-After the official forecast is published, publish runs the M6 candidate
+After the official forecast is published, publish runs the candidate
 (`ridge-core-180-v1`, see `lifecycle.py`) in shadow: it refits at most weekly on the
 labels available at the cutoff and forecasts from the same eligible versions as the
 official run. Shadow artifacts are written under `shadow/`, never `forecasts/`, so they
@@ -178,12 +178,11 @@ The watchdog writes local diagnostics and exits nonzero. External alerts and hos
 monitoring are not configured. Private S3 backups are active. A powered-off host cannot run its own
 watchdog. Historical missed dates can be inspected explicitly after recovery.
 
-M2 acceptance required seven real scheduled delivery-day attempts (met: 28 by
-October 14), evidence that prospective snapshots are accumulating (met: new price
-versions every day since September 17), and a host outage/retry drill. The drill was
-deferred on October 14; the Docker restart recovery of September 16 is the only
-recovery evidence, and the offline outage test does not substitute for a real one.
-See reports/m2_observation_2026-10-14.json.
+By October 14, 28 consecutive scheduled delivery-day attempts had published on
+time, and new price versions had been archived every day since September 17. No
+host outage drill has been run: the Docker restart recovery of September 16 is the
+only recovery evidence, and the offline outage test does not substitute for a real
+one. See reports/m2_observation_2026-10-14.json.
 
 Until October 14 the 13:00 settle run was partial every day, because the auction
 result for the target day is not yet available from ENTSO-E, and a transient failure

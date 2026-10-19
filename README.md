@@ -23,20 +23,17 @@ it: [docs/OPERATIONS.md](docs/OPERATIONS.md). Source checks:
 
 ## Status
 
-| Milestone | State |
+| Part | State |
 |---|---|
-| M0–M1: source audit, archive, baselines, scoring | Done |
-| M2: scheduled daily operation and dashboard | Done: 28 consecutive on-time scheduled forecasts by 2026-10-14 ([report](reports/m2_observation_2026-10-14.json)); host outage drill deferred |
-| M3: frozen splits, backtests of baselines, ridge and LightGBM | Done |
-| M4: covariate audit, ablations, calibrated P10/P50/P90 | Backtested; not in production |
-| M5: database, API, hardening | Deferred until a concrete need appears |
-| M6: shadow candidate, automatic promotion, rollback | Running: shadow, gate and dashboard comparison are live |
-| M8: comparison of model families on weather and load-forecast inputs | Planned |
-| M7: portfolio release with operational report | After M6 and M8 |
+| Price archive, baselines, scoring | Running |
+| Scheduled daily operation and dashboard | Running: 28 consecutive on-time scheduled forecasts by 2026-10-14 ([report](reports/m2_observation_2026-10-14.json)) |
+| Frozen splits, backtests of baselines, ridge and LightGBM | Done |
+| Covariate audit, ablations, calibrated P10/P50/P90 | Backtested; not in production |
+| Shadow candidate, automatic promotion, rollback | Running: shadow, gate and dashboard comparison are live |
 
 ## Results
 
-**Validation backtest (M3).** Weekly-refit rolling origins on frozen windows, MAE in
+**Validation backtest.** Weekly-refit rolling origins on frozen windows, MAE in
 EUR/MWh, holdouts untouched ([report](reports/backtest_models.json)):
 
 | | Hourly 2021–2023 | Native Apr–Jun 2026 |
@@ -59,7 +56,7 @@ against 25.70 for prior-day, 17% skill, with a week-block interval clear of zero
 ([report](reports/holdout_native.json)). The holdout is now spent; further evidence
 comes from shadow operation.
 
-**Uncertainty (M4).** P10/P90 ranges, nominal 80% coverage, on the same validation
+**Uncertainty.** P10/P90 ranges, nominal 80% coverage, on the same validation
 days ([report](reports/backtest_quantiles.json)):
 
 | | Hourly coverage | Hourly width | Native coverage | Native width |
@@ -75,16 +72,16 @@ still varies by time of day: on native data the conformalized interval covers ab
 Calibrating the conformal offset per local hour, a variant designed after seeing
 these results, narrows the hourly spread of native coverage from 68–94% to 79–86% at
 about 4% more width; for ridge it lowers coverage, because 28 held-back days per
-hour are too few for the tails. The per-hour variant needs a fresh forward window
-before it counts as evidence.
+hour are too few for the tails. Since the variant was designed on this data, its
+numbers are not independent evidence.
 
-**DE-LU ablation (M4).** Adding lagged German prices (D-1 and D-7 slots, previous-day
+**DE-LU ablation.** Adding lagged German prices (D-1 and D-7 slots, previous-day
 mean and AT–DE spread) to the same models and windows changed validation MAE by at
 most 0.08 EUR/MWh, with every 95% interval spanning zero
 ([report](reports/ablation_de_lu.json)). The group is not adopted: AT price lags
 already carry what DE-LU adds.
 
-**Weather ablation (M4).** Six-city means of ECMWF IFS temperature, 100 m wind and
+**Weather ablation.** Six-city means of ECMWF IFS temperature, 100 m wind and
 solar radiation from the 00 UTC run of D-1 (Open-Meteo single runs, data CC BY 4.0
 Open-Meteo.com), native era only ([report](reports/ablation_weather.json)):
 
@@ -96,19 +93,8 @@ Open-Meteo.com), native era only ([report](reports/ablation_weather.json)):
 Weather helps most at midday and on negative-price intervals, and makes LightGBM the
 best model. The archived runs are reconstructed (early ones are recomputed
 hindcasts), ECMWF changed model cycle on 2026-05-12 inside the fold, and one day with
-a defective run (2026-06-24) is excluded from both sides. Production use needs
-forward-archived runs first.
-
-## Roadmap
-
-- **M8:** backfill longer weather-forecast history, add the Austrian load forecast,
-  and compare LEAR, LightGBM, a DNN, NBEATSx, a zero-shot pretrained time-series
-  model and an ensemble on the same frozen folds; the winner becomes the next
-  shadow candidate.
-- Replay the candidate on the host archive and run a rollback drill there.
-- Per-hour interval calibration on a fresh forward window.
-- Later, only when needed: a host outage drill with external alerts, a read-only
-  API, and PostgreSQL once a second service writes state.
+a defective run (2026-06-24) is excluded from both sides. Production forecasts do
+not use weather.
 
 ## Local setup
 
