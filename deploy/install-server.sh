@@ -10,13 +10,15 @@ case "$image" in
   *) echo 'Refusing an image reference that is not pinned to a digest.' >&2; exit 2 ;;
 esac
 registry=${image%%/*}
+# Bucket names carry the account ID, which is the first label of the ECR host.
+account=${registry%%.*}
 cd /opt/electricity-forecast
 install -d -m 750 /etc/power-forecast
 install -d -o 1000 -g 1000 /var/lib/power-forecast /var/lib/power-forecast/operations
 cat > /etc/power-forecast/host.env <<CONFIG
 AWS_DEFAULT_REGION=eu-central-1
-POWER_ARTIFACTS_BUCKET=portfolio-demo-artifacts-<account-id>
-POWER_SITE_BUCKET=power-kasra-page-<account-id>
+POWER_ARTIFACTS_BUCKET=portfolio-demo-artifacts-$account
+POWER_SITE_BUCKET=power-kasra-page-$account
 POWER_TOKEN_PARAMETER=/portfolio/power/entsoe-api-key
 POWER_REGISTRY=$registry
 POWER_IMAGE=$image
