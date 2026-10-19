@@ -12,8 +12,9 @@ recovery preserved data and active timers. Official forecasts use `seasonal-dail
 from delivery day October 16, 2026; earlier official days used `seasonal-weekly-v1`.
 The dashboard's error metrics cover only the newest day's model. By October 14, 28 consecutive scheduled
 attempts (delivery September 18 to October 15) had published on time and been scored;
-see reports/m2_observation_2026-10-14.json. No learned model or automatic model
-promotion is running.
+see reports/m2_observation_2026-10-14.json. The ridge candidate runs in shadow beside
+the official forecast and is promoted automatically once it passes the gate (see
+below).
 
 ## Commands
 
@@ -115,7 +116,9 @@ writes. Use a local filesystem, not a network filesystem. Storage is still JSON.
 ## Linux host setup
 
 Shared AWS resources belong in `aws-infra`. These instructions prepare the project
-container on an existing Docker/Compose/systemd host; they do not provision one.
+container on an existing Docker/Compose/systemd host that builds its own image; they
+do not provision one. The running EC2 host instead pulls the CI image (see Running EC2
+deployment).
 
 1. Put the project at `/opt/electricity-forecast`, or change the service template's
    working directory. Configure `.env` securely on the host with `ENTSOE_API_KEY`.
@@ -255,12 +258,8 @@ AWS_PROFILE=admin bash deploy/publish-dashboard.sh \
 Read `DISTRIBUTION_ID` from `terraform -chdir=../aws-infra/power-site output -raw
 distribution_id`. The script exports with `--static-preview`, uploads only the
 public dashboard directory, and invalidates CloudFront. It does not delete old
-objects or upload the raw archive. AWS SSO credentials are required. The dashboard
-export is still published manually; the application image is not (see below).
-
-For rollback, rebuild and republish the prior reviewed code/data snapshot. There is
-not yet an automated release history or one-command rollback. Daily jobs and backups
-are now active as described below.
+objects or upload the raw archive. AWS SSO credentials are required. To roll back a
+manual release, republish the earlier export.
 
 ## Running EC2 deployment
 
@@ -312,9 +311,8 @@ exists from the second push onward; with only one image there is nothing to roll
 back to. The images built on the host before ECR were deleted on 2026-09-17, so
 the first ECR deployment is the baseline and every image the host can run now
 comes from the registry. Do not restore old
-data over newer published forecasts as part of a code rollback. Automatic rollback
+data over newer published forecasts as part of a code rollback. Automatic code rollback
 and external host-down alerts are not configured.
 
 Release packages contain source and deployment scripts, never `.env` or private
-credentials. Artifact SHA-256 is verified before extraction. The live diagram marks
-manual deployment and planned CI/model-development stages explicitly.
+credentials. Artifact SHA-256 is verified before extraction.
