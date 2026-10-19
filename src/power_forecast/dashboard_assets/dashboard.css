@@ -424,6 +424,9 @@ td {
 .foot a {
   font-size: 0.8125rem;
 }
+.foot .label a {
+  font-size: inherit;
+}
 .empty {
   padding: 4rem 1rem;
   text-align: center;
