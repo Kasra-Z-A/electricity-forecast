@@ -269,9 +269,10 @@ The production host uses `deploy/compose.server.yaml`, `deploy/run-job.sh`, and
 
 The application image is built once by GitHub Actions in `Kasra-Z-A/electricity-forecast`
 and pushed to the ECR repository `power-forecast`, tagged by commit. The host never
-builds: `install-server.sh` takes a digest, records it as `POWER_IMAGE` in
-`/etc/power-forecast/host.env`, and `run-job.sh` pulls that digest if it is absent.
-A reference without `@sha256:` is refused, so a moved tag cannot change what runs.
+builds: `install-server.sh` takes the `sha256:` digest from the CI run summary,
+records the full image reference as `POWER_IMAGE` in `/etc/power-forecast/host.env`,
+and `run-job.sh` pulls that digest if it is absent. Anything that is not a digest is
+refused, so a moved tag cannot change what runs.
 The image that serves a forecast is therefore the image CI tested. The earlier local Compose/Nginx instructions above are
 an alternative local preview setup; the public dashboard continues to use S3.
 

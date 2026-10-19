@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # Run as root after extracting a reviewed release into /opt/electricity-forecast.
 # Takes the image digest CI published:
-#   bash deploy/install-server.sh <registry>/power-forecast@sha256:<digest>
+#   bash deploy/install-server.sh sha256:<digest>
 set -euo pipefail
-image=${1:?image digest required}
+digest=${1:?image digest required}
 # A tag can be moved; a digest cannot. Refuse anything that is not pinned.
-case "$image" in
-  *@sha256:*) ;;
-  *) echo 'Refusing an image reference that is not pinned to a digest.' >&2; exit 2 ;;
+case "$digest" in
+  sha256:*) ;;
+  *) echo 'Refusing an image reference that is not a digest (sha256:...).' >&2; exit 2 ;;
 esac
-registry=${image%%/*}
-# Bucket names carry the account ID, which is the first label of the ECR host.
-account=${registry%%.*}
+# Registry and bucket names carry the account ID; the host's role tells us which.
+account=$(aws sts get-caller-identity --region eu-central-1 --query Account --output text)
+registry=$account.dkr.ecr.eu-central-1.amazonaws.com
+image=$registry/power-forecast@$digest
 cd /opt/electricity-forecast
 install -d -m 750 /etc/power-forecast
 install -d -o 1000 -g 1000 /var/lib/power-forecast /var/lib/power-forecast/operations
