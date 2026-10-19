@@ -118,6 +118,10 @@ img {
   text-transform: uppercase;
   color: var(--muted);
 }
+/* Section numbers and the page kicker, in rust as on kasra.page and jobs. */
+.label--accent {
+  color: var(--rust);
+}
 
 .pill {
   display: inline-flex;
