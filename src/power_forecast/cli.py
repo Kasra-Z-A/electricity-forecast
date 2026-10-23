@@ -138,6 +138,42 @@ def backfill_weather(start: str, end: str, data_dir: Path = Path("data")):
         raise typer.Exit(1)
 
 
+@app.command("backfill-load")
+def backfill_load(start: str, end: str, data_dir: Path = Path("data"), window_days: int = 31):
+    """Archive the AT day-ahead load forecast for delivery days START to END (exclusive)."""
+    from datetime import timedelta
+    from time import sleep
+
+    from power_forecast.ingestion.load import ingest_load_days
+
+    failed = []
+    try:
+        key = api_key()
+        day, stop = date.fromisoformat(start), date.fromisoformat(end)
+        while day < stop:
+            last = min(day + timedelta(days=window_days - 1), stop - timedelta(days=1))
+            try:
+                with writer_lock(data_dir):
+                    results = ingest_load_days(day, last, key, data_dir)
+            except SourceError as error:
+                results = {day + timedelta(days=n): error for n in range((last - day).days + 1)}
+            for current, result in sorted(results.items()):
+                if isinstance(result, SourceError):
+                    # A defective day is left missing, never filled from a neighbour.
+                    failed.append(str(current))
+                    typer.echo(f"{current}: {result}", err=True)
+                else:
+                    typer.echo(f"{current}: {'cached' if result['cached'] else 'downloaded'}")
+            sleep(0.5)
+            day = last + timedelta(days=1)
+    except (ValueError, OSError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1)
+    if failed:
+        typer.echo(f"Missing days: {', '.join(failed)}", err=True)
+        raise typer.Exit(1)
+
+
 @app.command("forecast")
 def forecast_command(
     delivery_date: str,

@@ -44,9 +44,9 @@ class FeatureCache:
     def __init__(self, archive: dict, covariates: dict | None = None):
         self.archive = archive
         self.lookup = slot_lookup(archive.values())
-        # Price covariates need a slot lookup; weather is used as given.
+        # Price covariates need a slot lookup; weather and load are used as given.
         self.covariates = {
-            name: values if name == "weather" else (values, slot_lookup(values.values()))
+            name: values if name in ("weather", "load") else (values, slot_lookup(values.values()))
             for name, values in (covariates or {}).items()
         }
         self.rows = {}

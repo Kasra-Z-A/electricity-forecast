@@ -37,6 +37,7 @@ FEATURES = (
 COVARIATES = {
     "de_lu": ("de_lag_1", "de_lag_7", "de_prev_mean", "spread_prev_mean"),
     "weather": ("wx_temperature", "wx_wind_100m", "wx_solar", "wx_solar_day"),
+    "load": ("load_forecast", "load_forecast_day"),
 }
 WEATHER_VARIABLES = ("temperature_2m", "wind_speed_100m", "shortwave_radiation")
 
@@ -108,6 +109,15 @@ def day_features(
         if None in day_hours:
             return None
         solar_day = mean(values[2] for values in day_hours)
+    load = None
+    if "load" in covariates:
+        if day not in covariates["load"]:
+            return None
+        quarters = covariates["load"][day]["mw"]
+        # Hourly-era rows take the mean of their four quarter-hours.
+        width = resolution(day) // 15
+        load = [mean(quarters[i : i + width]) for i in range(0, len(quarters), width)]
+        load_day = mean(quarters)
     previous = _day_prices(archive, newest)
     week = [p for n in range(7) for p in _day_prices(archive, newest - timedelta(days=n))]
     if not previous or not week:
@@ -116,7 +126,7 @@ def day_features(
     year_days = 366 if day.year % 4 == 0 else 365
     angle = 2 * pi * (day.timetuple().tm_yday - 1) / year_days
     rows = []
-    for target in delivery_grid(day, resolution(day)):
+    for index, target in enumerate(delivery_grid(day, resolution(day))):
         local = target.astimezone(VIENNA)
 
         def lagged(lag, source=lookup):
@@ -145,6 +155,8 @@ def day_features(
         if weather is not None:
             temperature, wind, solar = weather[target.replace(minute=0)]
             extra += [temperature, wind, solar, solar_day]
+        if load is not None:
+            extra += [load[index], load_day]
         rows.append(
             [
                 local.hour,
