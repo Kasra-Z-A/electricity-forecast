@@ -30,6 +30,7 @@ it: [docs/OPERATIONS.md](docs/OPERATIONS.md). Source checks:
 | Frozen splits, backtests of baselines, ridge and LightGBM | Done |
 | Covariate audit, ablations, calibrated P10/P50/P90 | Backtested; not in production |
 | Shadow candidate, automatic promotion, rollback | Running: shadow, gate and dashboard comparison are live |
+| Comparison of LEAR, LightGBM, Chronos-2 and an ensemble on weather and load forecasts | Done; not in production |
 
 ## Results
 
@@ -96,6 +97,46 @@ hindcasts), ECMWF changed model cycle on 2026-05-12 inside the fold, and one day
 a defective run (2026-06-24) is excluded from both sides. Production forecasts do
 not use weather.
 
+**Model comparison.** Four models on the day-ahead load forecast and the weather
+run, with settings fixed before any was scored ([config](configs/comparison.json)):
+
+- LEAR: one Lasso per quarter-hour slot on the whole price curves of D-1, D-2, D-3
+  and D-7, the load forecast for D, D-1 and D-7 and the weather run for D,
+  averaged over 56-, 84- and 182-day training windows;
+- LightGBM with the weather and load features;
+- Chronos-2, a pretrained time-series model used zero-shot, with load and weather
+  as inputs;
+- the equal-weight mean of those three.
+
+All train on native quarter-hour data only and refit weekly. The model with the
+lowest MAE on the selection window was chosen, and the confirmation window was then
+scored once ([selection](reports/comparison_selection.json),
+[confirmation](reports/comparison_confirmation.json)):
+
+| MAE, EUR/MWh | Selection Apr–Aug 2026, 145 days | Confirmation Sep–Oct 2026, 50 days |
+|---|---|---|
+| Weekly baseline | 33.05 | 35.80 |
+| Prior-day baseline (production) | 28.32 | 36.11 |
+| Ridge candidate | 24.28 | 30.33 |
+| LightGBM, weather and load | 22.29 | 26.26 |
+| LEAR | 21.33 | 26.78 |
+| Ensemble | 19.12 | 23.20 |
+| Chronos-2, zero-shot | **18.78** | **21.85** |
+
+Chronos-2 is selected and confirmed: on the confirmation window its MAE is 28% below
+the ridge candidate, with a week-block 95% interval of the daily difference of
+[−10.0, −6.7] EUR/MWh. It is also the most accurate on high-price intervals. Its
+P10–P90 range covers 80.4% of intervals overall but 51% in its worst hour. The
+ensemble is less accurate than Chronos-2 alone.
+
+The selection window contains the native holdout consulted for the ridge candidate;
+no setting was chosen on it. Weather and load inputs are archived versions; their
+published schedules (00 UTC run of D-1, load forecast due 10:00 on D-1) are the
+availability evidence. Chronos-2 was released before both windows, so they cannot be
+part of its training data. No winter days are evaluated. Chronos-2 needs an unbroken
+input history, so the defective weather run of 2026-06-24 leaves it without a
+forecast for the following week; those days are excluded for every model.
+
 ## Local setup
 
 Python 3.12 and [uv](https://docs.astral.sh/uv/). Dependencies are pinned in `uv.lock`.
@@ -160,6 +201,26 @@ uv run power-forecast backfill-weather 2025-10-01 2026-10-18
 uv run --group research python experiments/ablation.py weather
 ```
 
+The model comparison also needs the `foundation` group (PyTorch and Chronos-2) and
+the Chronos-2 weights at the revision pinned in `chronos.py`, which the script checks
+against their published SHA-256:
+
+```bash
+REV=29ec3766d36d6f73f0696f85560a422f50e8498c
+mkdir -p data/models/chronos-2-$REV
+for f in config.json model.safetensors; do
+  curl -L -C - -o data/models/chronos-2-$REV/$f \
+    https://huggingface.co/amazon/chronos-2/resolve/$REV/$f
+done
+uv run power-forecast backfill-weather 2024-03-15 2026-10-21
+uv run power-forecast backfill-load 2018-10-01 2026-10-22
+uv run --group research --group foundation python experiments/compare_models.py validation
+uv run --group research --group foundation python experiments/compare_models.py holdout
+```
+
+The second run scores the confirmation window and refuses to run again once its
+report exists.
+
 ### Daily jobs
 
 ```bash
@@ -188,8 +249,9 @@ charts.
 ## Repository layout
 
 ```text
-src/power_forecast/   package: ingestion, time grid, baselines, ridge, scoring,
-                      operations, lifecycle and promotion, dashboard export
+src/power_forecast/   package: ingestion, time grid, baselines, ridge, LEAR,
+                      Chronos-2, scoring, operations, lifecycle and promotion,
+                      dashboard export
 experiments/          reproducible research entry points
 configs/              frozen splits, model settings and the current candidate
 reports/              checksummed results of backtests, ablations and checks
@@ -204,3 +266,5 @@ tests/                offline tests with sanitised fixtures
   and load/renewable forecasts.
 - [Open-Meteo](https://open-meteo.com): ECMWF IFS single-run weather forecasts,
   CC BY 4.0.
+- [Chronos-2](https://huggingface.co/amazon/chronos-2) (Amazon), pretrained weights,
+  Apache-2.0.

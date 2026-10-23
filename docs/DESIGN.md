@@ -74,8 +74,9 @@ before each cutoff, is the strongest evidence.
 
 ENTSO-E's "day-ahead" label does not prove pre-auction availability, and its
 responses carry no publication time. Load and wind/solar forecasts are therefore
-collected prospectively and their first-seen times logged before they can become
-features. Open-Meteo's Historical Forecast API stitches successive runs [S2], so
+collected prospectively and their first-seen times logged. Research backtests use
+the published deadline as availability evidence and label these inputs
+reconstructed. Open-Meteo's Historical Forecast API stitches successive runs [S2], so
 it does not represent a forecast available at a fixed cutoff; weather comes from
 archived single runs instead [S3].
 
@@ -92,7 +93,10 @@ malformed responses and server errors are distinguished [S5].
 **Optional inputs**, each adopted only after an ablation on the same windows:
 
 - Lagged DE-LU prices (tested; no gain, not adopted).
-- Austrian load and renewable forecasts, after their availability is shown.
+- The Austrian day-ahead load forecast (ENTSO-E, due by 10:00 on D-1 under
+  Regulation 543/2013), archived per delivery day from 2018-10 at 15-minute
+  resolution. The wind and solar forecast is due by 18:00, after the cutoff, and
+  is not used.
 - ECMWF weather for Vienna, Graz, Linz, Salzburg, Innsbruck and Eisenstadt:
   temperature, 100 m wind and solar radiation, as regional proxies rather than a
   capacity-weighted grid.
@@ -139,6 +143,26 @@ quantile models, conformally calibrated on held-back training days, and a
 past-error interval for ridge. Production ridge (`ridge.py`) is plain numpy so the
 serving image needs no scikit-learn.
 
+**LEAR** (`lear.py`), the standard benchmark of the price-forecasting literature
+[S6]: one Lasso per local quarter-hour slot, all sharing day-level inputs,
+namely the whole price curves of D-1, D-2, D-3 and D-7, the load forecast for D,
+D-1 and D-7, the hourly weather run for D, and weekday and holiday indicators.
+Prices and loads are scaled by the training window's median and MAD and passed
+through asinh, which damps spikes. Forecasts from 56-, 84- and 182-day windows are
+averaged, so no single window is chosen [S7]. The penalty is chosen per slot by
+contiguous five-fold cross-validation; the original's AIC needs more training days
+than inputs, which native windows do not have. DST days map onto 96 clock slots:
+the repeated hour is averaged and the missing hour repeats the one before.
+
+**Chronos-2** (`chronos.py`), a pretrained time-series model used zero-shot [S8]. For
+delivery day D it reads up to 84 days of native prices with the load forecast and
+weather run each of those days had, and the load forecast and weather run for D as
+known future inputs; it returns P10/P50/P90. Its weights are pinned by revision and
+checksum. Its context must be an unbroken series, so it stops at the newest day
+without inputs and needs at least seven days. PyTorch and LightGBM each bring their
+own OpenMP runtime, which deadlock in one process on macOS, so Chronos-2 runs in a
+separate process.
+
 ## Evaluation and promotion
 
 **Windows** are frozen before any model is selected (`configs/splits.json`). All
@@ -151,6 +175,9 @@ cutoff and trains only on labels available then, refitting weekly as operation d
   July–August 2026. September 2026 onward is prospective evidence.
 - 2025-10-26, 2026-03-29 and the 2025-09-30/10-01 resolution change are fixed
   test cases.
+- Model comparison (`configs/comparison.json`): selection April–August 2026, which
+  includes the consulted native holdout, and confirmation 2026-09-01 to 2026-10-20,
+  scored once. Every model and reference is scored on the days all of them cover.
 
 **Metrics.** MAE, RMSE, MAE skill against the weekly baseline, pinball loss per
 quantile, 80% interval coverage and width, with breakdowns by time of day, weekday,
@@ -231,7 +258,7 @@ CloudFront after each job and marks itself stale when exports stop.
 
 ## References
 
-Checked 2026-09-14.
+Checked 2026-09-14; S6–S8 checked 2026-10-23.
 
 - [S1: ENTSO-E Single Day-Ahead Coupling](https://www.entsoe.eu/network_codes/cacm/implementation/sdac/)
   — quarter-hour transition and Austrian bidding-zone history.
@@ -243,3 +270,9 @@ Checked 2026-09-14.
   — the noon coupled-auction timeline.
 - [S5: ENTSO-E data extraction implementation guide](https://transparency.entsoe.eu/content/static_content/download?path=%2FStatic+content%2Fweb+api%2FIG-for-TP-data-extraction-process.pdf)
   — request document types and extraction protocol.
+- [S6: Lago, Marcjasz, De Schutter and Weron, Forecasting day-ahead electricity prices (2021)](https://doi.org/10.1016/j.apenergy.2021.116983)
+  — the LEAR and DNN benchmarks and evaluation practice.
+- [S7: Hubicka, Marcjasz and Weron, averaging forecasts across calibration windows](https://ideas.repec.org/p/wuu/wpaper/hsc1803.html)
+  — combining short and long training windows instead of choosing one.
+- [S8: Ansari et al., Chronos-2: From Univariate to Universal Forecasting (2025)](https://arxiv.org/abs/2510.15821)
+  — the pretrained model and its use of known future inputs.

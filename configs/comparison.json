@@ -1,0 +1,27 @@
+{
+  "_comment": "M8 model comparison, frozen before any model in it was scored. 'validation' is the selection window (April-August 2026; it includes the native holdout consulted once on 2026-10-17, which is acceptable for comparing fixed models but is recorded in the report). 'holdout' is the confirmation window, scored once for the selected model and every reference after the selection report exists. Models are trained on native quarter-hour data only. Settings are fixed here; nothing is tuned on either window.",
+  "refit_days": 7,
+  "training_windows": [56, 84, 180, 182],
+  "eras": {
+    "native": {
+      "resolution_minutes": 15,
+      "train": ["2025-10-01", "2026-03-31"],
+      "validation": ["2026-04-01", "2026-08-31"],
+      "holdout": ["2026-09-01", "2026-10-20"],
+      "prospective_from": "2026-10-21"
+    }
+  },
+  "fixture_days": [],
+  "models": {
+    "lear": {"windows": [56, 84, 182]},
+    "lightgbm": {"window": 180, "covariates": ["weather", "load"]},
+    "chronos2": {"model": "amazon/chronos-2", "context_days": 84, "quantiles": [0.1, 0.5, 0.9]},
+    "ensemble": {"members": ["lear", "lightgbm", "chronos2"], "weights": "equal"}
+  },
+  "selection": "lowest interval-weighted MAE on the selection days every model and reference covers",
+  "references": {
+    "prior_day": "seasonal baseline, production champion",
+    "weekly": "seasonal baseline",
+    "ridge_core_180": "current shadow candidate ridge-core-180-v1 (configs/candidate.json)"
+  }
+}
