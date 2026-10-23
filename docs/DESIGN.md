@@ -190,7 +190,7 @@ once; after that, only fresh forward windows count.
 The candidate runs in shadow beside the official forecast and is promoted
 automatically, from the next publication, when all of these hold on the same days:
 
-- at least 28 common days, at least 14 of them live shadow days;
+- at least 28 common days, at least 7 of them live shadow days;
 - MAE at least 2% below the champion and below the weekly baseline;
 - the 95% week-block interval of the daily MAE difference entirely below zero;
 - RMSE no more than 5% above the champion.

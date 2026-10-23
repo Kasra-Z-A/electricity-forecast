@@ -68,11 +68,17 @@ def test_better_candidate_is_promoted_automatically(scored):
     assert run_gate(data_dir, NOW)["status"] == "candidate_is_champion"
 
 
+def test_a_week_of_live_shadow_is_enough(scored):
+    data_dir, forecasts = scored
+    forecasts(candidate_error=4.0, live=7)
+    assert run_gate(data_dir, NOW)["status"] == "promoted"
+
+
 @pytest.mark.parametrize(
     "kwargs, failed",
     [
         ({"candidate_error": 4.0, "days": 20, "live": 20}, "common_days"),
-        ({"candidate_error": 4.0, "live": 10}, "live_shadow_days"),
+        ({"candidate_error": 4.0, "live": 6}, "live_shadow_days"),
         ({"candidate_error": 4.95}, "mae_improvement"),
         ({"candidate_error": 9.0, "champion_error": 10.0}, "beats_weekly"),
     ],
@@ -147,7 +153,7 @@ def test_monitoring_compares_models_on_the_same_recent_days(scored):
     from power_forecast.promotion import monitoring
 
     data_dir, forecasts = scored
-    forecasts(candidate_error=4.0, live=10)
+    forecasts(candidate_error=4.0, live=6)
     run_gate(data_dir, NOW)
     summary = monitoring(data_dir)
     rows = {row["model"]: row for row in summary["rows"]}

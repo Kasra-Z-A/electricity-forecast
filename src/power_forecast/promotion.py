@@ -26,7 +26,7 @@ WEEKLY = "seasonal-weekly-v1"
 # Engineering defaults from docs/DESIGN.md, not scientific constants.
 POLICY = {
     "min_common_days": 28,
-    "min_live_shadow_days": 14,
+    "min_live_shadow_days": 7,
     "min_mae_improvement": 0.02,
     "max_rmse_worsening": 0.05,
 }

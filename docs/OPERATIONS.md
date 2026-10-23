@@ -82,7 +82,7 @@ scorable shadow or replay forecast, against the champion and `seasonal-weekly-v1
 the same days and the latest actuals. Where those baselines were not official, the
 gate replays what they would have published from the versions retrieved before each
 cutoff. The candidate is promoted automatically, effective from the next publication,
-when all checks pass: at least 28 common days, at least 14 of them live shadow days,
+when all checks pass: at least 28 common days, at least 7 of them live shadow days,
 MAE at least 2% below the champion, below the weekly baseline, the week-block 95%
 interval of the daily MAE difference entirely below zero, and RMSE no more than 5%
 above the champion. Each evaluation is kept under `models/evaluations/`; promotions
