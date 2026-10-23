@@ -196,3 +196,34 @@ def test_failed_observation_never_changes_collection_status(tmp_path, no_live_ob
         {"status": "error", "error_type": "RuntimeError"},
         {"document": "weather", "status": "cached"},
     ]
+
+
+def test_load_forecast_is_archived_without_affecting_collection_status(tmp_path):
+    from power_forecast.ingestion.entsoe import SourceError
+
+    stubs = (
+        patch("power_forecast.operations.api_key", return_value="test"),
+        patch("power_forecast.operations.sleep"),
+        patch("power_forecast.operations.ingest_day", return_value={"cached": True}),
+    )
+    outcomes = [
+        ({DAY: {"cached": False}}, {"status": "archived"}),
+        ({DAY: SourceError("gap")}, {"status": "error", "error_type": "SourceError"}),
+        (RuntimeError("down"), {"status": "error", "error_type": "RuntimeError"}),
+    ]
+    for outcome, expected in outcomes:
+        stored = (
+            {"side_effect": outcome}
+            if isinstance(outcome, Exception)
+            else {"return_value": outcome}
+        )
+        with (
+            stubs[0],
+            stubs[1],
+            stubs[2],
+            patch("power_forecast.operations.ingest_load_days", **stored) as ingest,
+        ):
+            result = run_job("collect", tmp_path, DAY)
+        assert ingest.call_args.args[:2] == (DAY, DAY)
+        assert result["status"] == "success"
+        assert result["result"]["load_forecast"] == expected

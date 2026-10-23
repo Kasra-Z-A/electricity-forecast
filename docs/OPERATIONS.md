@@ -47,8 +47,11 @@ forecast (A69) for the delivery day and appends what it found to
 It also archives the ECMWF 00 UTC run of D-1 from Open-Meteo under `weather/` once
 it is served, and logs each attempt to `observations/weather.jsonl`; a run archived
 at 10:00 shows as cached at 10:15 with its first retrieval time.
-This is availability evidence for the covariate audit only; it never feeds a forecast
-and its failures never change the collection status. Existing
+These logs are availability evidence for the covariate audit, and their failures
+never change the collection status. The load forecast for the delivery day is also
+archived under `load/` with its retrieval time, reported as `load_forecast`; a day
+archived earlier is kept, and a failure leaves the day missing without changing
+the collection status. No official forecast uses weather or load. Existing
 eligible history can still support publication. Historical data downloaded after
 10:30 cannot enter that day's official forecast. Publication is allowed only from
 10:30 through 11:00 on D-1; publication after 10:45 is explicitly late. Backfilled

@@ -12,6 +12,7 @@ from power_forecast.baseline import forecast
 from power_forecast.config import api_key
 from power_forecast.history import TRANSITION, atomic_json, ingest_day, ingest_window
 from power_forecast.ingestion.entsoe import SourceError
+from power_forecast.ingestion.load import ingest_load_days
 from power_forecast.ingestion.observations import observe, observe_weather
 from power_forecast.lifecycle import CANDIDATE, candidate_forecast, shadow_forecast
 from power_forecast.promotion import champion, run_gate
@@ -142,10 +143,21 @@ def collect(day: date, data_dir: Path) -> dict:
         observations.append(
             {"document": "weather", "status": "error", "error_type": type(error).__name__}
         )
+    # The load forecast for D as it stands at 10:00, kept with its retrieval time so a
+    # forecast can show it predates the cutoff. A day archived earlier is not replaced.
+    try:
+        stored = ingest_load_days(day, day, key, data_dir)[day]
+        if isinstance(stored, SourceError):
+            load_forecast = {"status": "error", "error_type": type(stored).__name__}
+        else:
+            load_forecast = {"status": "cached" if stored["cached"] else "archived"}
+    except Exception as error:  # noqa: BLE001 - a covariate must not fail collection
+        load_forecast = {"status": "error", "error_type": type(error).__name__}
     return {
         "completed": completed,
         "failures": failures,
         "observations": observations,
+        "load_forecast": load_forecast,
         "training_history": training_history,
         "status": "partial" if failures else "success",
     }
