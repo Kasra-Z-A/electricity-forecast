@@ -86,3 +86,72 @@ jobs:
 
       - if: env.READY != 'true'
         run: echo "ECR secrets are not set yet; skipping the image build."
+
+  # The pipeline also runs as one AWS Lambda function (power_forecast.cloud).
+  # Every run builds that image and invokes it once through the runtime
+  # emulator in the base image, which proves the handler imports and starts;
+  # pushes to main publish it to its own registry once the secrets exist.
+  lambda-image:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC token for the AWS push role
+    env:
+      READY: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && secrets.AWS_LAMBDA_PUSH_ROLE_ARN != '' && secrets.ECR_LAMBDA_REPOSITORY != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Lambda needs a single-platform Docker image, not a multi-arch index or attestations.
+      - name: Build the image
+        run: |
+          docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
+            --output type=docker -f Dockerfile.lambda -t power-pipeline:test .
+
+      - name: Invoke the handler once
+        run: |
+          docker run -d --name lambda -p 9000:8080 power-pipeline:test
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            response=$(curl -sf -d '{"job": "none"}' \
+              http://localhost:9000/2015-03-31/functions/function/invocations) && break
+            sleep 2
+          done
+          docker rm -f lambda > /dev/null
+          echo "$response"
+          echo "$response" | grep -q "Unknown job"
+
+      - if: env.READY == 'true'
+        env:
+          REPOSITORY: ${{ secrets.ECR_LAMBDA_REPOSITORY }}
+        run: echo "::add-mask::${REPOSITORY%%.*}"
+
+      - if: env.READY == 'true'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_LAMBDA_PUSH_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - if: env.READY == 'true'
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Tagged by commit so a tag always identifies the source it was built from.
+      - name: Push the image
+        if: env.READY == 'true'
+        env:
+          REPOSITORY: ${{ secrets.ECR_LAMBDA_REPOSITORY }}
+        run: |
+          image="$REPOSITORY:${{ github.sha }}"
+          docker tag power-pipeline:test "$image"
+          docker push "$image"
+          digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image")
+          digest=${digest#*@}
+          echo "Pushed $digest"
+          {
+            echo "### Lambda image published"
+            echo
+            echo '```'
+            echo "$digest"
+            echo '```'
+            echo
+            echo "Deploy it with: deploy/deploy-lambda.sh $digest"
+          } >> "$GITHUB_STEP_SUMMARY"

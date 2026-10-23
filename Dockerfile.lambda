@@ -1,0 +1,14 @@
+FROM public.ecr.aws/lambda/python:3.12
+# Patch the OS packages the base layer ships with, as the host image does.
+RUN dnf upgrade -y && dnf clean all
+RUN pip install --no-cache-dir uv==0.12.10
+COPY pyproject.toml uv.lock README.md /build/
+COPY src /build/src
+# Lambda imports from LAMBDA_TASK_ROOT, so dependencies and the package are
+# installed there from the lock file rather than into a virtual environment.
+RUN cd /build \
+ && uv export --locked --no-dev --group cloud --no-emit-project -o requirements.txt \
+ && uv pip install --python /var/lang/bin/python3.12 --target "$LAMBDA_TASK_ROOT" -r requirements.txt \
+ && uv pip install --python /var/lang/bin/python3.12 --target "$LAMBDA_TASK_ROOT" --no-deps . \
+ && rm -rf /build /root/.cache
+CMD ["power_forecast.cloud.handler"]
