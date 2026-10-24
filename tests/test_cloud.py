@@ -77,6 +77,8 @@ class FakeSSM:
 @pytest.fixture
 def aws(tmp_path, monkeypatch):
     s3 = FakeS3()
+    # The handler reads the real clock, so objects must be stamped with it too.
+    s3.now = datetime.now(UTC)
     clients = {"s3": s3, "scheduler": FakeScheduler(["ENABLED"] * 4), "ssm": FakeSSM()}
     monkeypatch.setattr(cloud, "DATA_DIR", tmp_path / "data")
     monkeypatch.setenv("PIPELINE_MODE", "live")
