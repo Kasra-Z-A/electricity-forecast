@@ -11,4 +11,6 @@ RUN cd /build \
  && uv pip install --python /var/lang/bin/python3.12 --target "$LAMBDA_TASK_ROOT" -r requirements.txt \
  && uv pip install --python /var/lang/bin/python3.12 --target "$LAMBDA_TASK_ROOT" --no-deps . \
  && rm -rf /build /root/.cache
+# Forecast artifacts record the lock file's hash, read from the working directory.
+COPY uv.lock ${LAMBDA_TASK_ROOT}/
 CMD ["power_forecast.cloud.handler"]
