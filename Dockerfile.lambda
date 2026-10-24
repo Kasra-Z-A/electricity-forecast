@@ -15,11 +15,12 @@ RUN mkdir -p "$CHRONOS_MODEL_DIR" && cd "$CHRONOS_MODEL_DIR" \
     | sha256sum -c -
 COPY pyproject.toml uv.lock README.md /build/
 COPY src /build/src
-# Lambda imports from LAMBDA_TASK_ROOT, so dependencies and the package are
-# installed there from the lock file rather than into a virtual environment.
+# Lambda imports from LAMBDA_TASK_ROOT. Dependencies are synced from the lock
+# file, which also records the CPU-only PyTorch index, then copied there.
 RUN cd /build \
- && uv export --locked --no-dev --group cloud --group research --group foundation --no-emit-project -o requirements.txt \
- && uv pip install --python /var/lang/bin/python3.12 --target "$LAMBDA_TASK_ROOT" -r requirements.txt \
+ && UV_PROJECT_ENVIRONMENT=/build/venv uv sync --locked --no-dev --no-install-project \
+      --python /var/lang/bin/python3.12 --group cloud --group research --group foundation \
+ && cp -r /build/venv/lib/python3.12/site-packages/. "$LAMBDA_TASK_ROOT"/ \
  && uv pip install --python /var/lang/bin/python3.12 --target "$LAMBDA_TASK_ROOT" --no-deps . \
  && rm -rf /build /root/.cache
 # Forecast artifacts record the lock file's hash, read from the working directory.
