@@ -159,6 +159,36 @@ def test_a_held_lock_skips_the_run_and_staging_never_publishes(aws, monkeypatch)
     assert not any(bucket == "site" for bucket, _ in s3.objects)
 
 
+def test_a_dashboard_refresh_publishes_without_writing_state(aws):
+    s3, client = aws
+    s3.put_object(Bucket="state", Key="live/state.tar.gz", Body=cloud.pack(_seeded(cloud.DATA_DIR)))
+    before = s3.objects[("state", "live/state.tar.gz")]["ETag"]
+    with patch("power_forecast.operations.run_job", side_effect=_export) as job:
+        assert cloud.handler({"job": "dashboard"}, client=client)["status"] == "success"
+    assert [call.args[0] for call in job.call_args_list] == ["dashboard"]
+    assert ("site", "dashboard.json") in s3.objects
+    assert s3.objects[("state", "live/state.tar.gz")]["ETag"] == before
+    assert ("state", "live/lock") not in s3.objects
+
+
+def test_one_off_commands_run_on_the_state_under_the_lock(aws):
+    s3, client = aws
+    with patch("power_forecast.operations.run_job", side_effect=_export):
+        result = cloud.handler({"job": "command", "args": ["rollback", "drill"]}, client=client)
+    assert result["status"] == "failed"
+    assert "no previous champion" in result["output"]
+    assert ("state", "live/state.tar.gz") in s3.objects
+    assert ("state", "live/lock") not in s3.objects
+    with pytest.raises(ValueError, match="Command must be one of"):
+        cloud.handler({"job": "command", "args": ["backfill", "2026-01-01"]}, client=client)
+
+
+def _seeded(data_dir):
+    (data_dir / "prices").mkdir(parents=True)
+    (data_dir / "prices" / "a.json").write_text("{}")
+    return data_dir
+
+
 def _export(name, data_dir):
     (data_dir / "operations").mkdir(parents=True, exist_ok=True)
     (data_dir / "operations" / f"{name}.json").write_text("{}")

@@ -1,9 +1,8 @@
 name: checks
 
-# Tests run on every push and pull request. Pushes to main also build the
-# application image once and push it to ECR, so the image that reaches the
-# forecasting host is the one CI tested. The host pulls a pinned digest; it no
-# longer builds anything itself.
+# Tests run on every push and pull request. Every run also builds the Lambda
+# image; pushes to main push it to ECR, so the image the pipeline runs is the
+# one CI tested. Deployment pins its digest.
 
 on:
   pull_request:
@@ -31,66 +30,9 @@ jobs:
       - run: uv run ruff format --check src tests experiments
       - run: uv run --group research pytest -q
 
-  image:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    permissions:
-      contents: read
-      id-token: write # GitHub OIDC token for the AWS push role
-    env:
-      # Stays inert until the aws-infra demo-server stack is applied and these
-      # repository secrets are set, so the first pushes only run tests.
-      READY: ${{ secrets.AWS_IMAGE_PUSH_ROLE_ARN != '' && secrets.ECR_REPOSITORY != '' }}
-    steps:
-      - uses: actions/checkout@v7
-
-      # The role and registry are secrets so the logs show neither. The account
-      # ID also appears on its own (registry host, push output); mask it too.
-      - if: env.READY == 'true'
-        env:
-          REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-        run: echo "::add-mask::${REPOSITORY%%.*}"
-
-      - if: env.READY == 'true'
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.AWS_IMAGE_PUSH_ROLE_ARN }}
-          aws-region: eu-central-1
-
-      - if: env.READY == 'true'
-        uses: aws-actions/amazon-ecr-login@v2
-
-      # Tagged by commit so a tag always identifies the source it was built from.
-      # The digest is what deployment pins; the tag is only for humans.
-      - name: Build and push the image
-        if: env.READY == 'true'
-        env:
-          REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-        run: |
-          image="$REPOSITORY:${{ github.sha }}"
-          docker build -t "$image" .
-          docker push "$image"
-          digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image")
-          digest=${digest#*@}
-          echo "Pushed $digest"
-          {
-            echo "### Image published"
-            echo
-            echo '```'
-            echo "$digest"
-            echo '```'
-            echo
-            echo "Deploy it on the host with: bash deploy/install-server.sh $digest"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - if: env.READY != 'true'
-        run: echo "ECR secrets are not set yet; skipping the image build."
-
-  # The pipeline also runs as one AWS Lambda function (power_forecast.cloud).
-  # Every run builds that image and invokes it once through the runtime
-  # emulator in the base image, which proves the handler imports and starts;
-  # pushes to main publish it to its own registry once the secrets exist.
+  # The pipeline runs as one AWS Lambda function (power_forecast.cloud). The
+  # image is invoked once through the runtime emulator in the base image, which
+  # proves the handler imports and starts.
   lambda-image:
     needs: test
     runs-on: ubuntu-latest

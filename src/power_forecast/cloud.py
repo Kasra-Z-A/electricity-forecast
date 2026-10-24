@@ -8,6 +8,14 @@ it held exits and the next scheduled attempt retries, as the host's file lock di
 A lock older than any Lambda run can be is taken over, again conditionally. The
 snapshot itself is replaced only if it is still the version this run read.
 
+The `dashboard` job only refreshes the public page every five minutes: it reads
+the snapshot and publishes a new export without writing the snapshot back, so
+frequent refreshes add no state versions.
+
+The `command` job runs one of the one-off CLI commands in `COMMANDS` on the
+state under the same lock, for example
+`{"job": "command", "args": ["rollback", "reason"]}`, and returns its output.
+
 In staging mode the snapshot and dashboard stay under `staging/` in the state
 bucket and nothing is published.
 """
@@ -21,7 +29,8 @@ import tarfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-JOBS = ("collect", "publish", "settle", "watchdog")
+JOBS = ("collect", "publish", "settle", "watchdog", "dashboard", "command")
+COMMANDS = ("evaluate", "rollback", "shadow-replay")
 # Lambda stops a run after at most 15 minutes, so an older lock has no live owner.
 STALE_LOCK = timedelta(minutes=16)
 DATA_DIR = Path("/tmp/data")
@@ -129,6 +138,24 @@ def record_scheduler(scheduler, group: str, data_dir: Path, now: datetime) -> No
     )
 
 
+def run_command(args: list[str], data_dir: Path) -> tuple[str, str]:
+    """Run an allowed CLI command on `data_dir`; returns its status and output."""
+    import contextlib
+
+    from typer.main import get_command
+
+    from power_forecast.cli import app
+
+    if not args or args[0] not in COMMANDS:
+        raise ValueError(f"Command must be one of {', '.join(COMMANDS)}.")
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+        code = get_command(app).main(
+            args=[*args, "--data-dir", str(data_dir)], standalone_mode=False
+        )
+    return ("success" if not code else "failed"), output.getvalue()
+
+
 def handler(event, context=None, client=None) -> dict:
     """Run `event["job"]`; `client` makes AWS clients by service name (boto3 by default)."""
     from power_forecast.operations import run_job
@@ -140,6 +167,8 @@ def handler(event, context=None, client=None) -> dict:
     job = event.get("job")
     if job not in JOBS:
         raise ValueError(f"Unknown job {job!r}.")
+    if job == "command" and (not event.get("args") or event["args"][0] not in COMMANDS):
+        raise ValueError(f"Command must be one of {', '.join(COMMANDS)}.")
     settings = _settings()
     mode, bucket = settings["mode"], settings["bucket"]
     s3 = client("s3")
@@ -149,7 +178,7 @@ def handler(event, context=None, client=None) -> dict:
     except Busy:
         print(json.dumps({"job": job, "status": "busy"}))
         return {"job": job, "status": "busy"}
-    failure = None
+    failure, output = None, None
     try:
         etag = download(s3, bucket, state_key, DATA_DIR)
         record_scheduler(
@@ -160,19 +189,26 @@ def handler(event, context=None, client=None) -> dict:
                 Name=settings["token_parameter"], WithDecryption=True
             )
             os.environ["ENTSOE_API_KEY"] = parameter["Parameter"]["Value"]
-        try:
-            status = run_job(job, DATA_DIR)["status"]
-        except Exception as error:  # noqa: BLE001 - recorded by run_job; re-raised below
-            failure, status = error, "failed"
-        finally:
-            os.environ.pop("ENTSOE_API_KEY", None)
+        status = None
+        if job != "dashboard":
+            try:
+                if job == "command":
+                    status, output = run_command(event["args"], DATA_DIR)
+                else:
+                    status = run_job(job, DATA_DIR)["status"]
+            except Exception as error:  # noqa: BLE001 - recorded by run_job; re-raised below
+                failure, status = error, "failed"
+            finally:
+                os.environ.pop("ENTSOE_API_KEY", None)
         # Export fresh status even when the job failed, as the host did; the
         # snapshot is saved even if the export fails.
         try:
-            run_job("dashboard", DATA_DIR)
+            exported = run_job("dashboard", DATA_DIR)["status"]
         except Exception as error:  # noqa: BLE001 - recorded by run_job; re-raised below
-            failure = failure or error
-        upload(s3, bucket, state_key, DATA_DIR, etag)
+            failure, exported = failure or error, "failed"
+        status = status or exported
+        if job != "dashboard":
+            upload(s3, bucket, state_key, DATA_DIR, etag)
         if (DATA_DIR / "dashboard" / "dashboard.json").exists():
             if mode == "live":
                 publish(s3, settings["site_bucket"], "", DATA_DIR / "dashboard")
@@ -181,6 +217,8 @@ def handler(event, context=None, client=None) -> dict:
     finally:
         s3.delete_object(Bucket=bucket, Key=lock_key)
     print(json.dumps({"job": job, "status": status, "mode": mode}))
+    if output:
+        print(output)
     if failure is not None:
         raise failure
-    return {"job": job, "status": status}
+    return {"job": job, "status": status} | ({"output": output} if output else {})

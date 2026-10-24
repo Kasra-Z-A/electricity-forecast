@@ -14,8 +14,9 @@ Live dashboard: https://power.kasra.page
   publication is due by 10:45.
 - **Production model:** the prior-day seasonal baseline. A ridge model runs in
   shadow beside it and is promoted automatically once it passes the gate.
-- **Infrastructure:** Docker batch jobs under systemd timers on one EC2 host,
-  images built in CI and pulled by digest, a static dashboard on S3 + CloudFront.
+- **Infrastructure:** batch jobs in one AWS Lambda function started by EventBridge
+  Scheduler, state as a versioned S3 snapshot, an image built in CI and deployed by
+  digest, a static dashboard on S3 + CloudFront.
 
 How it is built and why: [docs/DESIGN.md](docs/DESIGN.md). Running and recovering
 it: [docs/OPERATIONS.md](docs/OPERATIONS.md). Source checks:
@@ -255,7 +256,7 @@ src/power_forecast/   package: ingestion, time grid, baselines, ridge, LEAR,
 experiments/          reproducible research entry points
 configs/              frozen splits, model settings and the current candidate
 reports/              checksummed results of backtests, ablations and checks
-deploy/               Compose files, systemd units and host scripts
+deploy/               Lambda deployment script
 docs/                 design, operations runbook, source audit
 tests/                offline tests with sanitised fixtures
 ```

@@ -220,16 +220,20 @@ flowchart LR
   Gate --> Predict
 ```
 
-One EC2 instance runs the batch jobs as one-shot Docker containers started by
-systemd timers in Vienna time; GitHub Actions runs CI and builds the image but is
-not the deadline-sensitive scheduler. Jobs are separate (collect, publish, settle,
-watchdog, dashboard), take the writer lock and retry within bounds. The host has no
-inbound ports and is managed through SSM; the API token lives in SSM Parameter
-Store and is on disk only while a job runs. Data is backed up nightly to S3.
+One AWS Lambda function runs the batch jobs, started by EventBridge Scheduler in
+Vienna time; GitHub Actions runs CI and builds the image but is not the
+deadline-sensitive scheduler. Jobs are separate (collect, publish, settle, watchdog,
+dashboard) and retry at their next scheduled slot. The data directory is one
+compressed snapshot in a versioned S3 bucket: a run takes a lock object created with
+a conditional write, unpacks the snapshot into temporary storage, runs the job and
+replaces the snapshot only if it is still the version it read. Replaced versions are
+kept for 30 days and serve as the backup. The API token lives in SSM Parameter Store
+and is in the process environment only while a job that needs it runs.
 
 The dashboard is a static export of public fields only: official forecasts, actual
 prices, errors, job status and the model comparison. It is uploaded to S3 behind
-CloudFront after each job and marks itself stale when exports stop.
+CloudFront after each job and every five minutes, and marks itself stale when
+exports stop.
 
 ## Key decisions
 
@@ -244,8 +248,11 @@ CloudFront after each job and marks itself stale when exports stop.
   a database adds operations work without solving a real problem.
 - **A static dashboard instead of an API.** The dashboard already publishes its data
   as JSON, which is enough for one public page.
-- **Images built once in CI, pulled by digest.** The host never builds; what runs is
-  exactly what CI tested, and rollback is repointing a digest.
+- **Images built once in CI, deployed by digest.** What runs is exactly what CI
+  tested, and rollback is repointing the function at an earlier digest.
+- **Serverless batch jobs instead of a server.** The jobs run for under a minute a
+  few times a day; a function on a schedule removes the host, its patching and its
+  disk, and the S3 lock keeps the single-writer rule of the file lock.
 - **Ridge as the first learned candidate.** On validation it beat LightGBM on
   core features (26.49 vs 27.20 EUR/MWh) and was frozen before the holdout was used.
 - **Automatic promotion.** Promotion follows the gate without a manual approval

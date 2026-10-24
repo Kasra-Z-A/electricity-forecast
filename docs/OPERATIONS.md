@@ -1,14 +1,17 @@
 # Daily baseline operation
 
-Daily jobs are deployed on an EC2 instance in Frankfurt.
-All six systemd timers are enabled. Docker Compose runs the Python batch image;
-the host uploads the public export to S3/CloudFront at https://power.kasra.page.
+Daily jobs run as one AWS Lambda function in Frankfurt, started by EventBridge
+Scheduler in Europe/Vienna time; each run uploads the public export to
+S3/CloudFront at https://power.kasra.page. From September 16 to October 24, 2026 the
+same jobs ran on an EC2 instance under systemd timers; the Lambda function took over
+on October 24 from a checksum-verified copy of the host archive, after its forecasts
+for delivery on October 25 matched the host's in every interval.
 Deployment began after the September 16 cutoff. The first official forecast attempt
 is September 17, 2026 at 10:30 Europe/Vienna, for delivery on September 18.
 
 Verified on September 16: real collection succeeded, 36 delivery days were cached,
 the private S3 backup was restored and checksum-validated, and Docker restart
-recovery preserved data and active timers. Official forecasts use `seasonal-daily-v1`
+recovery preserved data and active timers on the host. Official forecasts use `seasonal-daily-v1`
 from delivery day October 16, 2026; earlier official days used `seasonal-weekly-v1`.
 The dashboard's error metrics cover only the newest day's model. By October 14, 28 consecutive scheduled
 attempts (delivery September 18 to October 15) had published on time and been scored;
@@ -69,8 +72,8 @@ cannot reach the public dashboard or the official pointer, and their errors neve
 change the publish status. Settle scores them after the official days.
 
 `power-forecast shadow-replay START END` recreates candidate forecasts for past days
-from the versions retrieved before each cutoff; run it on the host archive, which
-collected those versions live. Its fits use later-downloaded training labels and are
+from the versions retrieved before each cutoff; run it on the production archive,
+which collected those versions live. Its fits use later-downloaded training labels and are
 marked `reconstructed_labels`.
 
 ### Champion, automatic promotion and rollback
@@ -91,15 +94,14 @@ interval of the daily MAE difference entirely below zero, and RMSE no more than 
 above the champion. Each evaluation is kept under `models/evaluations/`; promotions
 and rollbacks are appended to `models/events.jsonl`. Gate errors never fail settle.
 
-`power-forecast evaluate` runs the gate without promoting. One-off commands such as
-`rollback`, `evaluate` and `shadow-replay` run on the host as root, holding the host
-lock so no scheduled job runs at the same time:
+`power-forecast evaluate` runs the gate without promoting. The one-off commands
+`rollback`, `evaluate` and `shadow-replay` run on the production state through the
+function's `command` job, which holds the state lock so no scheduled job runs at the
+same time, and returns the command's output:
 
 ```sh
-cd /opt/electricity-forecast && set -a && . /etc/power-forecast/host.env && set +a
-touch /run/power-forecast.env
-flock /run/power-forecast-host.lock \
-  docker compose -f deploy/compose.server.yaml run --rm batch rollback "reason"
+aws lambda invoke --function-name power-pipeline --cli-binary-format raw-in-base64-out \
+  --payload '{"job": "command", "args": ["rollback", "reason"]}' out.json && cat out.json
 ```
 
 This restores the previous champion from the next publication and blocks the rolled-back
@@ -114,51 +116,8 @@ the official pointer. Source snapshots remain immutable and selected by cutoff.
 All CLI writers share a nonblocking OS file lock in `data/.writer.lock`. A competing
 job exits and can be retried. The OS releases the lock after process termination;
 never delete the lock file. Direct Python API callers must take `writer_lock` around
-writes. Use a local filesystem, not a network filesystem. Storage is still JSON.
-
-## Linux host setup
-
-Shared AWS resources belong in `aws-infra`. These instructions prepare the project
-container on an existing Docker/Compose/systemd host that builds its own image; they
-do not provision one. The running EC2 host instead pulls the CI image (see Running EC2
-deployment).
-
-1. Put the project at `/opt/electricity-forecast`, or change the service template's
-   working directory. Configure `.env` securely on the host with `ENTSOE_API_KEY`.
-   Keep secrets out of images and source control.
-2. Ensure `data/` is owned by the UID/GID used by the container (default 1000:1000).
-   If different, set `POWER_UID` and `POWER_GID` in the Compose environment file.
-3. Build and smoke-test the image:
-
-   ```sh
-   docker compose --env-file .env -f deploy/compose.yaml build
-   docker compose --env-file .env -f deploy/compose.yaml run --rm batch doctor
-   docker compose --env-file .env -f deploy/compose.yaml run --rm batch job collect
-   ```
-
-4. Validate the systemd units and calendar expressions on the target host:
-
-   ```sh
-   systemd-analyze verify deploy/systemd/*.service deploy/systemd/*.timer
-   systemd-analyze calendar '*-*-* 10:00,15:00 Europe/Vienna'
-   systemd-analyze calendar '*-*-* 10:30,35,40,45,50,55:00 Europe/Vienna'
-   ```
-
-5. Install and activate the timers:
-
-   ```sh
-   sudo cp deploy/systemd/* /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now power-forecast-collect.timer power-forecast-publish.timer power-forecast-settle.timer power-forecast-watchdog.timer power-forecast-dashboard.timer
-   systemctl list-timers 'power-forecast*'
-   ```
-
-Timers use explicit Vienna time and persistent catch-up. A missed publication timer
-does not bypass the application's publication window. The timer semantics are
-described in the [systemd timer documentation](https://github.com/systemd/systemd/blob/main/man/systemd.timer.xml).
-The host must maintain accurate time. Image build and unit validation must pass on
-the target host before claiming deployment. Container memory/CPU limits are initial
-guardrails and still require measurement.
+writes. Use a local filesystem, not a network filesystem. Storage is JSON. In the
+Lambda deployment the S3 lock object below plays the same role across runs.
 
 ## Recovery and acceptance
 
@@ -168,8 +127,9 @@ guardrails and still require measurement.
 - **Missing token:** configure `.env`, run `doctor`, then retry collection. The
   stored diagnostic records the error type, never arbitrary upstream error text.
 - **Writer busy:** wait for the active job, then retry. Do not remove the lock.
-- **Crash:** an abruptly killed job can leave a `running` attempt. Check the host
-  journal (`journalctl -u 'power-forecast@*'`) and rerun the job. Prior attempts remain.
+- **Crash:** an abruptly killed job can leave a `running` attempt. Check the
+  function's logs (`aws logs tail /aws/lambda/power-pipeline --since 1d`) and rerun
+  the job. Prior attempts remain.
 - **Pending scores:** retry `job settle`; incomplete actual days cannot be scored.
   Errors stay visible and do not prevent other days from being processed.
 - **Corrupt snapshot:** use `ingest-prices DATE` to obtain a fresh version. Preserve
@@ -177,27 +137,24 @@ guardrails and still require measurement.
 - **Missed publication:** inspect `job watchdog --delivery-date DATE`. Do not
   backdate or replace an official run. Capture the incident in the operating record.
 
-The watchdog writes local diagnostics and exits nonzero. External alerts and host-down
-monitoring are not configured. Private S3 backups are active. A powered-off host cannot run its own
-watchdog. Historical missed dates can be inspected explicitly after recovery.
+The watchdog records its diagnostics and exits nonzero. External alerts are not
+configured. Missed dates can be inspected explicitly after recovery.
 
 By October 14, 28 consecutive scheduled delivery-day attempts had published on
 time, and new price versions had been archived every day since September 17. No
-host outage drill has been run: the Docker restart recovery of September 16 is the
-only recovery evidence, and the offline outage test does not substitute for a real
-one. See reports/m2_observation_2026-10-14.json.
+outage drill has been run: the Docker restart recovery of September 16 is the only
+recovery evidence, and the offline outage test does not substitute for a real one. See reports/m2_observation_2026-10-14.json.
 
 Until October 14 the 13:00 settle run was partial every day, because the auction
 result for the target day is not yet available from ENTSO-E, and a transient failure
 while refreshing an already-scored day also marked a run partial. Both exited nonzero,
-so `power-forecast@settle.service` showed as failed while every official day was
-scored. Settle now records those cases as `awaiting_results` (target day, before
+so the settle service showed as failed while every official day was scored. Settle now records those cases as `awaiting_results` (target day, before
 15:30 Vienna on D-1) and `kept_previous_score`. A run is partial only when an official
 day that should be scorable still has no score.
 
 ## Dashboard
 
-The first deployment now includes a read-only dashboard. Its typography, palette,
+The dashboard is read-only. Its typography, palette,
 light/dark themes and layout conventions are adapted from `website/src/styles/global.css`
 and `website/src/layouts/Base.astro`. Font files are self-hosted; their licenses are
 in `src/power_forecast/dashboard_assets/fonts/`. The website repository is unchanged.
@@ -212,26 +169,11 @@ The preview binds to `127.0.0.1:8080`. It is a development server, not the publi
 server. Only the exported directory is served. The static JSON contains selected
 public fields; tokens, source paths, raw responses and detailed errors are excluded.
 
-For deployment, export before starting the dashboard container:
-
-```sh
-docker compose --env-file .env -f deploy/compose.yaml run --rm batch job dashboard
-docker compose --env-file .env -f deploy/compose.yaml up -d dashboard
-```
-
-The dashboard container mounts only the exported directory, read-only, and has no
-ENTSO-E credentials. It listens on host loopback port 8080. Connect the shared HTTPS
-proxy for `power.kasra.page` through the `aws-infra` deployment. DNS and public TLS
-are not configured by these templates. The Nginx setup follows the official
-[static content documentation](https://docs.nginx.com/nginx/admin-guide/web-server/serving-static-content/).
-
-The dashboard timer exports every five minutes, offset two minutes from the hour.
-If another writer holds the lock it retries at the next scheduled trigger. Failed
+The `dashboard` schedule exports every five minutes, offset two minutes from the
+hour. If another run holds the lock it retries at the next scheduled trigger. Failed
 exports retain the previous JSON; the page marks exports older than 20 minutes as
 stale. The browser also rechecks snapshot age while open. Refresh the page to load
-a newly exported snapshot. The background job is included in the timer installation
-above. The production Docker batch image is validated; the optional Nginx
-container is not used by the S3-hosted deployment.
+a newly exported snapshot.
 
 The dashboard shows official forecasts only: replays, diagnostic runs and shadow
 forecasts never appear in its charts, although every artifact in `forecasts/` is
@@ -243,78 +185,52 @@ so promoting a model or starting a new candidate needs no page change. Negative 
 are preserved. An empty archive produces a valid empty dashboard rather than sample
 or invented prices.
 
-## Initial historical dashboard deployment (superseded by daily updates)
+## Lambda deployment
 
-The initial static release used `aws-infra/power-site`: private S3 storage,
-CloudFront, ACM and Route 53 for `https://power.kasra.page`. The same hosting now receives updates from EC2. The manual static-preview
-command below is retained for historical demonstrations; do not use it to replace
-the scheduled production export.
+Infrastructure comes from the `power-pipeline` stack in `aws-infra`; this repository
+holds the handler (`src/power_forecast/cloud.py`), its image (`Dockerfile.lambda`) and
+`deploy/deploy-lambda.sh`.
 
-To publish a new export after reviewing local results:
-
-```sh
-AWS_PROFILE=admin bash deploy/publish-dashboard.sh \
-  power-kasra-page-<account-id> <distribution-id>
-```
-
-Read `DISTRIBUTION_ID` from `terraform -chdir=../aws-infra/power-site output -raw
-distribution_id`. The script exports with `--static-preview`, uploads only the
-public dashboard directory, and invalidates CloudFront. It does not delete old
-objects or upload the raw archive. AWS SSO credentials are required. To roll back a
-manual release, republish the earlier export.
-
-## Running EC2 deployment
-
-The production host uses `deploy/compose.server.yaml`, `deploy/run-job.sh`, and
-`deploy/install-server.sh`.
-
-The application image is built once by GitHub Actions in `Kasra-Z-A/electricity-forecast`
-and pushed to the ECR repository `power-forecast`, tagged by commit. The host never
-builds: `install-server.sh` takes the `sha256:` digest from the CI run summary,
-records the full image reference as `POWER_IMAGE` in `/etc/power-forecast/host.env`,
-and `run-job.sh` pulls that digest if it is absent. Anything that is not a digest is
-refused, so a moved tag cannot change what runs.
-The image that serves a forecast is therefore the image CI tested. The earlier local Compose/Nginx instructions above are
-an alternative local preview setup; the public dashboard continues to use S3.
-
-- Host: one EC2 instance, managed through SSM, no inbound ports.
-- Persistent data: `/var/lib/power-forecast`, owned by UID/GID 1000.
-- Application: `/opt/electricity-forecast`.
-- Non-secret host settings: `/etc/power-forecast/host.env`.
-- Token: SSM `/portfolio/power/entsoe-api-key`, read only for collection/scoring,
-  temporarily written to root-only `/run/power-forecast.env` and removed on exit.
+- Function: `power-pipeline`, 1024 MB, 15-minute timeout, one job per invocation
+  (`{"job": "collect"}` and so on) and no automatic retries.
+- Schedules: the EventBridge Scheduler group `power-pipeline` runs the times in the
+  table above in Europe/Vienna, so daylight-saving changes move with the market day,
+  plus the five-minute `dashboard` refresh.
+- State: `s3://power-pipeline-state-<account-id>/live/state.tar.gz`, the whole data
+  directory without the dashboard export. A run creates `live/lock` with a
+  conditional write, downloads and unpacks the snapshot, runs the job and the
+  dashboard export, and uploads the snapshot only if it is still the version it
+  downloaded. A run that finds the lock held exits as `busy`; a lock older than 16
+  minutes has no live owner and is taken over. The `dashboard` refresh publishes a
+  new export without uploading the snapshot.
+- Backup: bucket versioning keeps every replaced snapshot for 30 days.
+- Token: SSM `/portfolio/power/entsoe-api-key`, read only for collection and
+  scoring, and removed from the environment when the job ends.
 - Public files: `s3://power-kasra-page-<account-id>`. JSON/HTML cache for 60 seconds;
   assets for 300 seconds. Daily jobs do not issue CloudFront invalidations.
-- Private releases/backups: `s3://portfolio-demo-artifacts-<account-id>`.
-- Backup: 21:10 Vienna, retained for 30 days under `backups/power/`.
-- Scheduler state is observed with systemctl and included in each dashboard export.
+- Scheduler state: each run lists the schedule group and records whether every
+  schedule is enabled; the dashboard shows it.
+- Logs: CloudWatch Logs `/aws/lambda/power-pipeline`, kept for 30 days.
 
-The server wrapper serializes jobs with a host lock and refreshes the public page
-after each job, including failed outcomes. A separate dashboard timer refreshes it
-every five minutes. If a job is blocked by a writer, its next timer attempt retries.
-The initial startup day has no official forecast because setup occurred after the
-publication window; an unhealthy watchdog result for that day is expected. Start
-the consecutive scheduled-day observation window on September 17.
-
-To inspect on the host:
+The image is built once by GitHub Actions in `Kasra-Z-A/electricity-forecast` and
+pushed to the ECR repository `power-pipeline`, tagged by commit. To deploy, pass the
+`sha256:` digest from the CI run summary:
 
 ```sh
-systemctl list-timers 'power-forecast*'
-journalctl -u 'power-forecast@*' --since today
-systemctl start power-forecast@collect.service
-systemctl start power-forecast@dashboard.service
+AWS_PROFILE=admin deploy/deploy-lambda.sh sha256:...
 ```
 
-For rollback, stop the timers, re-run `deploy/install-server.sh` with the previous
-digest, and restart the timers and dashboard job. Rolling back is repointing
-`POWER_IMAGE`, not rebuilding: every digest ECR still retains is a candidate, and
-`aws ecr describe-images` lists them. The lifecycle policy keeps ten, so a target
-exists from the second push onward; with only one image there is nothing to roll
-back to. The images built on the host before ECR were deleted on 2026-09-17, so
-the first ECR deployment is the baseline and every image the host can run now
-comes from the registry. Do not restore old
-data over newer published forecasts as part of a code rollback. Automatic code rollback
-and external host-down alerts are not configured.
+Anything that is not a digest is refused, so a moved tag cannot change what runs.
+To run a job by hand, invoke the function with its name:
 
-Release packages contain source and deployment scripts, never `.env` or private
-credentials. Artifact SHA-256 is verified before extraction.
+```sh
+aws lambda invoke --function-name power-pipeline --cli-binary-format raw-in-base64-out \
+  --payload '{"job": "watchdog"}' out.json && cat out.json
+aws logs tail /aws/lambda/power-pipeline --since 1d
+```
+
+For a code rollback, deploy an earlier digest; `aws ecr describe-images
+--repository-name power-pipeline` lists them, and the lifecycle policy keeps three.
+To restore data, copy an earlier version of `live/state.tar.gz` over the current one
+while no run holds the lock. Do not restore old data over newer published forecasts
+as part of a code rollback. Automatic code rollback is not configured.
