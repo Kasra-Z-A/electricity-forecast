@@ -1,6 +1,6 @@
 FROM public.ecr.aws/lambda/python:3.12
-# Patch the OS packages the base layer ships with.
-RUN dnf upgrade -y && dnf clean all
+# Patch the OS packages the base layer ships with; LightGBM needs the OpenMP runtime.
+RUN dnf upgrade -y && dnf install -y libgomp && dnf clean all
 RUN pip install --no-cache-dir uv==0.12.10
 # Chronos-2 weights at the pinned revision, checked against their SHA-256 before use.
 ARG CHRONOS_REVISION=29ec3766d36d6f73f0696f85560a422f50e8498c

@@ -62,11 +62,11 @@ jobs:
           echo "$response"
           echo "$response" | grep -q "Unknown job"
 
-      # Loads the pinned Chronos-2 weights with the image's PyTorch, as a run would.
-      - name: Load Chronos-2 in the image
+      # Loads every model library and the pinned Chronos-2 weights, as a run would.
+      - name: Load the models in the image
         run: |
           docker run --rm --entrypoint python power-pipeline:test -c \
-            "from pathlib import Path; from power_forecast import chronos; chronos.load_pipeline(Path('/tmp')); print('Chronos-2 loaded')"
+            "from pathlib import Path; import power_forecast.challengers; from power_forecast import chronos; chronos.load_pipeline(Path('/tmp')); print('Models loaded')"
 
       - if: env.READY == 'true'
         env:
