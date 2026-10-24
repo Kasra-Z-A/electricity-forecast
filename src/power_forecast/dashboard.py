@@ -11,6 +11,8 @@ from power_forecast.history import atomic_json, load_version
 from power_forecast.promotion import monitoring
 from power_forecast.timegrid import VIENNA, forecast_cutoff
 
+VERSIONED_ASSETS = ("tokens.css", "dashboard.css", "theme.js", "dashboard.js")
+
 
 def dashboard_data(data_dir: Path, now: datetime | None = None) -> dict:
     now = now or datetime.now(UTC)
@@ -119,5 +121,18 @@ def build_dashboard(
             shutil.copytree(source, output_dir / source.name, dirs_exist_ok=True)
         else:
             shutil.copyfile(source, output_dir / source.name)
+    # The page is cached briefly and its scripts and styles longer, by browsers and
+    # by CloudFront, whose cache key ignores query strings. Each asset is therefore
+    # also written under a name with its hash, and the page links to that name, so
+    # a changed asset is a new URL at the next page load.
+    page = output_dir / "index.html"
+    html = page.read_text()
+    for name in VERSIONED_ASSETS:
+        source = output_dir / name
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()[:12]
+        hashed = f"{source.stem}.{digest}{source.suffix}"
+        shutil.copyfile(source, output_dir / hashed)
+        html = html.replace(f'"{name}"', f'"{hashed}"')
+    page.write_text(html)
     atomic_json(output_dir / "dashboard.json", value)
     return output_dir

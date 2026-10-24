@@ -196,7 +196,9 @@ The `dashboard` schedule exports every five minutes, offset two minutes from the
 hour. If another run holds the lock it retries at the next scheduled trigger. Failed
 exports retain the previous JSON; the page marks exports older than 20 minutes as
 stale. The browser also rechecks snapshot age while open. Refresh the page to load
-a newly exported snapshot.
+a newly exported snapshot. Scripts and stylesheets are also written under names that
+contain their content hash, and the page links to those, so a changed asset cannot
+be served from an older cache beside new data.
 
 The dashboard shows official forecasts only: replays, diagnostic runs and shadow
 forecasts never appear in its charts, although every artifact in `forecasts/` is

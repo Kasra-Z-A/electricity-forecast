@@ -86,3 +86,18 @@ def test_scheduler_status_and_next_cutoff(tmp_path):
     assert before["next_delivery_date"] == str(DAY)
     assert after["next_delivery_date"] == str(DAY + timedelta(days=1))
     assert "not exported" not in json.dumps(after)
+
+
+def test_asset_links_name_their_content_hash(tmp_path):
+    import hashlib
+
+    from power_forecast.dashboard import VERSIONED_ASSETS, build_dashboard
+
+    output = build_dashboard(tmp_path / "data", tmp_path / "site")
+    html = (output / "index.html").read_text()
+    for name in VERSIONED_ASSETS:
+        source = output / name
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()[:12]
+        hashed = f"{source.stem}.{digest}{source.suffix}"
+        assert f'"{hashed}"' in html and f'"{name}"' not in html
+        assert (output / hashed).read_bytes() == source.read_bytes()
