@@ -25,6 +25,7 @@ from power_forecast.lifecycle import (
     CANDIDATE_INFO,
     CHALLENGER_INFO,
     CHALLENGERS,
+    RETIRED,
     pointer_path,
     reference_forecast,
 )
@@ -37,6 +38,9 @@ POLICY = {
     "min_live_shadow_days": 7,
     "min_mae_improvement": 0.02,
     "max_rmse_worsening": 0.05,
+    # A challenger with this many live shadow days whose interval lies entirely above
+    # zero is confidently worse than the champion and is flagged for retirement.
+    "retire_after_live_days": 28,
 }
 
 
@@ -97,7 +101,7 @@ def _day_errors(data_dir: Path, path: Path, actual: dict) -> dict:
 
 def candidates() -> tuple:
     """Every model the gate may promote: the shadow candidate and the challengers."""
-    return (CANDIDATE["name"], *CHALLENGERS)
+    return tuple(name for name in (CANDIDATE["name"], *CHALLENGERS) if name not in RETIRED)
 
 
 def _blocked(data_dir: Path) -> set:
@@ -137,6 +141,8 @@ def evaluate(data_dir: Path, now: datetime, name: str | None = None, tested: int
         paired_comparison(candidate, reference, level=level) if candidate else {"common_days": 0}
     )
     interval = comparison.get("difference_interval", comparison.get("difference_95"))
+    if not candidate:
+        interval = None
     cand, champ, week = (metrics[k] for k in ("candidate", "champion", "weekly"))
     enough = len(candidate) >= POLICY["min_common_days"]
     checks = {
@@ -163,6 +169,9 @@ def evaluate(data_dir: Path, now: datetime, name: str | None = None, tested: int
         "versus_champion": comparison,
         "checks": checks,
         "passed": all(checks.values()),
+        "retire": live_days >= POLICY["retire_after_live_days"]
+        and interval is not None
+        and interval[0] > 0,
     }
     digest = hashlib.sha256(json.dumps(report, sort_keys=True).encode()).hexdigest()
     path = data_dir / "models" / "evaluations" / f"{now:%Y-%m-%d}-{digest[:12]}.json"
@@ -189,6 +198,7 @@ def run_gate(data_dir: Path, now: datetime) -> dict:
             "live_shadow_days": report["live_shadow_days"],
             "failed_checks": [check for check, ok in report["checks"].items() if not ok],
             "mae_skill": report["versus_champion"].get("mae_skill"),
+            "retire": report["retire"],
         }
     passed = [name for name in names if not results[name]["failed_checks"]]
     if not passed:
@@ -280,7 +290,7 @@ def monitoring(data_dir: Path) -> dict:
         elif model in shadow:
             role = "shadow"
         else:
-            role = "fallback" if model == PRODUCTION_MODEL else "reference"
+            role = "fallback" if model == PRODUCTION_MODEL else "baseline"
         row = {"model": model, "role": role}
         for window in (7, 28):
             chosen = [

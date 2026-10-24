@@ -75,6 +75,9 @@ CHALLENGERS = {
         "quantiles": [0.1, 0.5, 0.9],
     },
 }
+# Retired models stop forecasting and leave the gate and the dashboard; their past
+# forecasts stay in the archive. Retirement follows the rule in docs/DESIGN.md.
+RETIRED: frozenset = frozenset()
 # A learned champion that fails at publication falls back along this chain before
 # the seasonal baseline.
 FALLBACKS = {"chronos2-zs-v1": ["lear-wl-v1"]}

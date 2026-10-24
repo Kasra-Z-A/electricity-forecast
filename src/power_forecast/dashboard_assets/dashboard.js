@@ -5,8 +5,8 @@ const modelName = (id) => data?.models?.catalog?.[id]?.name || id;
 const ROLES = {
   published: "Published",
   shadow: "Shadow",
-  reference: "Reference",
-  fallback: "Reference · fallback",
+  baseline: "Baseline",
+  fallback: "Baseline · fallback",
 };
 const $ = (id) => document.getElementById(id);
 const fmt = (value) => (value == null ? "—" : value.toFixed(2));

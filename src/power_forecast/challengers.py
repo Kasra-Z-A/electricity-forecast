@@ -33,6 +33,7 @@ from power_forecast.ingestion.load import load_load
 from power_forecast.ingestion.weather import load_weather
 from power_forecast.lifecycle import (
     CHALLENGERS,
+    RETIRED,
     _digest,
     _point_to,
     last_label,
@@ -263,7 +264,7 @@ def run_challengers(day: date, data_dir: Path, now: datetime, champion: str) -> 
     """
     inputs = Inputs(data_dir)
     report = {}
-    for model in [m for m in CHALLENGERS if m != champion]:
+    for model in [m for m in CHALLENGERS if m != champion and m not in RETIRED]:
         outcome = {}
         if CHALLENGERS[model]["kind"] == "chronos":
             _batch_chronos(model, day, inputs, now, outcome)

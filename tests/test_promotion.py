@@ -180,3 +180,25 @@ def test_monitoring_compares_models_on_the_same_recent_days(scored):
     assert rows[PRODUCTION_MODEL]["role"] == "published"
     assert rows[CANDIDATE["name"]]["mae_7"] == pytest.approx(4.0)
     assert rows[WEEKLY]["mae_28"] == pytest.approx(8.0)
+
+
+def test_a_confidently_worse_challenger_is_flagged_for_retirement(scored):
+    data_dir, forecasts = scored
+    forecasts(candidate_error=8.0, live=30)
+    result = run_gate(data_dir, NOW)
+    assert result["candidates"][CANDIDATE["name"]]["retire"] is True
+    # The same error with fewer live days is not yet enough evidence.
+    forecasts(candidate_error=8.0, live=20)
+    assert run_gate(data_dir, NOW)["candidates"][CANDIDATE["name"]]["retire"] is False
+
+
+def test_retired_models_leave_the_gate_and_the_dashboard(scored, monkeypatch):
+    from power_forecast import promotion
+    from power_forecast.promotion import monitoring
+
+    data_dir, forecasts = scored
+    forecasts(candidate_error=4.0)
+    monkeypatch.setattr(promotion, "RETIRED", frozenset({CANDIDATE["name"]}))
+    result = run_gate(data_dir, NOW)
+    assert CANDIDATE["name"] not in result["candidates"]
+    assert CANDIDATE["name"] not in {row["model"] for row in monitoring(data_dir)["rows"]}

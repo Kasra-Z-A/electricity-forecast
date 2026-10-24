@@ -110,9 +110,12 @@ difference entirely below zero, and RMSE no more than 5% above the champion. The
 interval level is Bonferroni-corrected for the number of candidates tested, 1 − 0.05
 / k (98.75% for four), so testing several does not raise the chance of promoting one
 by luck. Of the candidates that pass, the one with the largest MAE skill over the
-champion is promoted automatically, effective from the next publication. Each
-evaluation is kept under `models/evaluations/`; promotions and rollbacks are
-appended to `models/events.jsonl`. Gate errors never fail settle.
+champion is promoted automatically, effective from the next publication. A candidate
+with at least 28 live shadow days whose interval lies entirely above zero is
+reported with `retire: true`; retiring it means adding it to `RETIRED` in
+`lifecycle.py` (see docs/DESIGN.md, Retirement). Each evaluation is kept under
+`models/evaluations/`; promotions and rollbacks are appended to
+`models/events.jsonl`. Gate errors never fail settle.
 
 `power-forecast evaluate` runs the gate without promoting. The one-off commands
 `rollback`, `evaluate` and `shadow-replay` run on the production state through the

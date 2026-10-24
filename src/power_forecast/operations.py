@@ -14,7 +14,13 @@ from power_forecast.history import TRANSITION, atomic_json, ingest_day, ingest_w
 from power_forecast.ingestion.entsoe import SourceError
 from power_forecast.ingestion.load import ingest_load_days
 from power_forecast.ingestion.observations import observe, observe_weather
-from power_forecast.lifecycle import CANDIDATE, FALLBACKS, candidate_forecast, shadow_forecast
+from power_forecast.lifecycle import (
+    CANDIDATE,
+    FALLBACKS,
+    RETIRED,
+    candidate_forecast,
+    shadow_forecast,
+)
 from power_forecast.promotion import candidates, champion, run_gate
 from power_forecast.scoring import score
 from power_forecast.timegrid import VIENNA, forecast_cutoff, results_expected
@@ -47,6 +53,8 @@ def run_shadow(day: date, data_dir: Path) -> dict:
     """The candidate's forecast, made after the official one; it never fails publish."""
     if champion(data_dir)["model"] == CANDIDATE["name"]:
         return {"status": "skipped", "reason": "candidate_is_champion"}
+    if CANDIDATE["name"] in RETIRED:
+        return {"status": "skipped", "reason": "retired"}
     try:
         record = shadow_forecast(day, data_dir, utcnow())
         return {"model": record["model"], "status": "reused" if record.get("reused") else "saved"}

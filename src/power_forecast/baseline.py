@@ -25,8 +25,8 @@ MODEL_INFO = {
     },
     "seasonal-weekly-v1": {
         "name": "Weekly baseline",
-        "description": "Uses the price at the same local time seven days earlier. It is the "
-        "reference for measuring skill.",
+        "description": "Uses the price at the same local time seven days earlier. A model "
+        "has to beat it before it can be promoted.",
     },
 }
 

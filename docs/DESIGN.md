@@ -202,6 +202,16 @@ is promoted automatically from the next publication. Testing several candidates
 against the same gate would otherwise raise the chance that one passes by luck; the
 corrected level keeps that chance at 5% or less.
 
+**Retirement.** Every candidate in the gate makes the corrected interval stricter
+for all of them, so a candidate that cannot win has a cost. The gate flags a
+candidate for retirement once it has at least 28 live shadow days and its interval
+lies entirely above zero: it is then confidently worse than the champion. A flagged
+model is retired by adding it to `RETIRED` (`lifecycle.py`), a reviewed change
+rather than an automatic one; it stops forecasting and leaves the gate and the
+dashboard, and its past forecasts stay in the archive. The fallback of a learned
+champion is not retired while that champion is published, because its daily shadow
+forecasts are the evidence that it still works.
+
 If a promoted model fails at publication, the seasonal baseline is published and
 the pointer records the fallback. Rollback restores the previous champion and
 blocks the demoted version; only a new version can be promoted again.
