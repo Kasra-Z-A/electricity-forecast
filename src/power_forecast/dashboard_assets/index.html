@@ -171,8 +171,8 @@
         </div>
         <p class="pipeline-intro">
           Every improvement travels the same circuit. A change is planned from
-          measured error, tested, built once into a pinned image, deployed to the
-          forecasting host, and scored again once it runs. The measurement is what
+          measured error, tested, built once into a pinned image, deployed by its
+          digest, and scored again once it runs. The measurement is what
           closes the loop and decides the next change.
         </p>
         <figure class="loop">
@@ -260,14 +260,14 @@
             <g class="loop-stage">
               <rect class="loop-card" x="577" y="352" width="196" height="84" rx="8" />
               <text class="loop-num" x="595" y="377">06</text>
-              <text class="loop-title" x="595" y="400">Deploy to the host</text>
-              <text class="loop-tool" x="595" y="421">ECR digest · SSM</text>
+              <text class="loop-title" x="595" y="400">Deploy the image</text>
+              <text class="loop-tool" x="595" y="421">ECR digest · Lambda</text>
             </g>
             <g class="loop-stage">
               <rect class="loop-card" x="347" y="352" width="196" height="84" rx="8" />
               <text class="loop-num" x="365" y="377">07</text>
               <text class="loop-title" x="365" y="400">Run the daily jobs</text>
-              <text class="loop-tool" x="365" y="421">Docker · systemd timers</text>
+              <text class="loop-tool" x="365" y="421">Lambda · EventBridge</text>
             </g>
             <g class="loop-stage">
               <rect class="loop-card" x="117" y="352" width="196" height="84" rx="8" />
@@ -328,15 +328,15 @@
             </li>
             <li>
               <span class="stage-number">06</span>
-              <h3>Deploy to the host</h3>
-              <p>Pull the pinned digest over SSM — no inbound ports</p>
-              <span class="tool">ECR digest · SSM</span>
+              <h3>Deploy the image</h3>
+              <p>Point the function at the pinned digest</p>
+              <span class="tool">ECR digest · Lambda</span>
             </li>
             <li>
               <span class="stage-number">07</span>
               <h3>Run the daily jobs</h3>
               <p>Collect, publish, settle and watch, on Vienna time</p>
-              <span class="tool">Docker · systemd timers</span>
+              <span class="tool">Lambda · EventBridge</span>
             </li>
             <li>
               <span class="stage-number">08</span>
