@@ -299,13 +299,18 @@ function renderModels() {
   $("champion-name").textContent = modelName(m.champion);
   $("champion-text").textContent = published?.description || "";
   const p = m.policy;
-  const shadow = m.champion !== m.candidate;
+  const several = m.candidates.length > 1;
   $("models-intro").textContent =
     "The published model makes the official forecast. " +
-    (shadow
-      ? "A candidate model forecasts every day in shadow, after the official forecast is published. Its forecasts are not shown in the charts above. "
+    (m.candidates.length
+      ? several
+        ? "Candidate models forecast every day in shadow, after the official forecast is published. Their forecasts are not shown in the charts above. "
+        : "A candidate model forecasts every day in shadow, after the official forecast is published. Its forecasts are not shown in the charts above. "
       : "No candidate model is in shadow at the moment. ") +
     `A candidate replaces the published model automatically once its error is at least ${p.min_mae_improvement * 100}% lower on at least ${p.min_common_days} common days, ${p.min_live_shadow_days} of them live, and the improvement is statistically clear.` +
+    (several
+      ? " If several qualify, the one with the largest improvement is promoted."
+      : "") +
     (m.champion !== m.fallback
       ? " If the published model fails on a given day, the fallback model is published instead."
       : "");

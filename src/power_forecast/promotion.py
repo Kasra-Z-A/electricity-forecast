@@ -1,8 +1,9 @@
 """The champion pointer, the automatic promotion gate and rollback (docs/DESIGN.md, Evaluation and promotion).
 
 `models/champion.json` names the model whose forecast is published; without it the
-seasonal baseline is champion. Settle evaluates the candidate after scoring. When
-every check passes, it is promoted automatically from the next publication. Every
+seasonal baseline is champion. Settle evaluates every candidate after scoring; of
+those that pass every check, the one with the largest skill over the champion is
+promoted automatically from the next publication. Every
 change is appended to `models/events.jsonl`. A rolled-back model is blocked: only a
 new candidate version can be promoted again.
 
@@ -19,7 +20,14 @@ from pathlib import Path
 from power_forecast.baseline import MODEL_INFO, PRODUCTION_MODEL
 from power_forecast.history import atomic_json, load_version
 from power_forecast.ingestion.entsoe import SourceError
-from power_forecast.lifecycle import CANDIDATE, CANDIDATE_INFO, pointer_path, reference_forecast
+from power_forecast.lifecycle import (
+    CANDIDATE,
+    CANDIDATE_INFO,
+    CHALLENGER_INFO,
+    CHALLENGERS,
+    pointer_path,
+    reference_forecast,
+)
 from power_forecast.metrics import _errors, _point_metrics, paired_comparison
 
 WEEKLY = "seasonal-weekly-v1"
@@ -87,9 +95,24 @@ def _day_errors(data_dir: Path, path: Path, actual: dict) -> dict:
     }
 
 
-def evaluate(data_dir: Path, now: datetime) -> dict:
-    """Compare the candidate with the champion on every common scorable day."""
-    name, current = CANDIDATE["name"], champion(data_dir)["model"]
+def candidates() -> tuple:
+    """Every model the gate may promote: the shadow candidate and the challengers."""
+    return (CANDIDATE["name"], *CHALLENGERS)
+
+
+def _blocked(data_dir: Path) -> set:
+    return {e["model"] for e in events(data_dir) if e["event"] == "rollback"}
+
+
+def evaluate(data_dir: Path, now: datetime, name: str | None = None, tested: int = 1) -> dict:
+    """Compare one candidate with the champion on every common scorable day.
+
+    `tested` is how many candidates this gate run evaluates; the interval check uses
+    a Bonferroni-corrected level, 1 - 0.05 / tested, so testing several candidates
+    does not raise the chance of promoting one that is not better.
+    """
+    name, current = name or CANDIDATE["name"], champion(data_dir)["model"]
+    level = 1 - 0.05 / tested
     candidate, reference, weekly, live_days = [], [], [], 0
     for pointer in sorted((data_dir / "shadow" / "days" / name).glob("*.json")):
         record = json.loads(pointer.read_text())
@@ -110,7 +133,10 @@ def evaluate(data_dir: Path, now: datetime) -> dict:
         label: _point_metrics(_errors(days))
         for label, days in (("candidate", candidate), ("champion", reference), ("weekly", weekly))
     }
-    comparison = paired_comparison(candidate, reference) if candidate else {"common_days": 0}
+    comparison = (
+        paired_comparison(candidate, reference, level=level) if candidate else {"common_days": 0}
+    )
+    interval = comparison.get("difference_interval", comparison.get("difference_95"))
     cand, champ, week = (metrics[k] for k in ("candidate", "champion", "weekly"))
     enough = len(candidate) >= POLICY["min_common_days"]
     checks = {
@@ -119,16 +145,17 @@ def evaluate(data_dir: Path, now: datetime) -> dict:
         "mae_improvement": enough
         and cand["mae"] <= (1 - POLICY["min_mae_improvement"]) * champ["mae"],
         "beats_weekly": enough and cand["mae"] < week["mae"],
-        "interval_below_zero": enough and comparison["difference_95"][1] < 0,
+        "interval_below_zero": enough and interval[1] < 0,
         "rmse_guard": enough and cand["rmse"] <= (1 + POLICY["max_rmse_worsening"]) * champ["rmse"],
-        "not_rolled_back": name
-        not in {e["model"] for e in events(data_dir) if e["event"] == "rollback"},
+        "not_rolled_back": name not in _blocked(data_dir),
     }
     report = {
         "evaluated_at": now.isoformat(),
         "candidate": name,
         "champion": current,
         "policy": POLICY,
+        "candidates_tested": tested,
+        "interval_level": level,
         "first_day": str(candidate[0]["day"]) if candidate else None,
         "last_day": str(candidate[-1]["day"]) if candidate else None,
         "live_shadow_days": live_days,
@@ -144,20 +171,31 @@ def evaluate(data_dir: Path, now: datetime) -> dict:
 
 
 def run_gate(data_dir: Path, now: datetime) -> dict:
-    """Evaluate the candidate and promote it if it passed; called by settle."""
-    if champion(data_dir)["model"] == CANDIDATE["name"]:
-        return {"status": "candidate_is_champion"}
-    report = evaluate(data_dir, now)
-    summary = {
-        "evaluation": report["path"],
-        "common_days": report["versus_champion"]["common_days"],
-        "live_shadow_days": report["live_shadow_days"],
-        "failed_checks": [name for name, ok in report["checks"].items() if not ok],
-    }
-    if not report["passed"]:
-        return summary | {"status": "kept_champion"}
-    promote(data_dir, CANDIDATE["name"], report["path"], now)
-    return summary | {"status": "promoted"}
+    """Evaluate every candidate; promote the one that passed with the largest skill.
+
+    Called by settle. The champion and rolled-back models are not evaluated.
+    """
+    current = champion(data_dir)["model"]
+    blocked = _blocked(data_dir)
+    names = [name for name in candidates() if name != current and name not in blocked]
+    if not names:
+        return {"status": "no_candidates"}
+    results = {}
+    for name in names:
+        report = evaluate(data_dir, now, name, tested=len(names))
+        results[name] = {
+            "evaluation": report["path"],
+            "common_days": report["versus_champion"]["common_days"],
+            "live_shadow_days": report["live_shadow_days"],
+            "failed_checks": [check for check, ok in report["checks"].items() if not ok],
+            "mae_skill": report["versus_champion"].get("mae_skill"),
+        }
+    passed = [name for name in names if not results[name]["failed_checks"]]
+    if not passed:
+        return {"status": "kept_champion", "candidates": results}
+    best = max(passed, key=lambda name: results[name]["mae_skill"])
+    promote(data_dir, best, results[best]["evaluation"], now)
+    return {"status": "promoted", "promoted": best, "candidates": results}
 
 
 def promote(data_dir: Path, model: str, evidence: str, now: datetime) -> None:
@@ -199,47 +237,63 @@ def _actuals(data_dir: Path, day: date) -> dict | None:
 def monitoring(data_dir: Path) -> dict:
     """Read-only model comparison for the dashboard: recent errors on common days.
 
-    Only days on which the candidate and both seasonal baselines all have a forecast
-    and complete actuals are used, so every row of a window covers the same days.
+    Windows count back over days on which the published model and both seasonal
+    baselines have a forecast and complete actuals. A candidate's value covers the
+    same days; a window in which it lacks one of them shows no value.
     """
     current = champion(data_dir)["model"]
-    models = (CANDIDATE["name"], PRODUCTION_MODEL, WEEKLY)
+    shadow = [name for name in candidates() if name != current]
+    baselines = [m for m in (PRODUCTION_MODEL, WEEKLY) if m != current]
+    required = [current, *baselines]
     days = {date.fromisoformat(p.stem) for p in (data_dir / "official").glob("*.json")}
-    days |= {
-        date.fromisoformat(p.stem)
-        for p in (data_dir / "shadow" / "days" / CANDIDATE["name"]).glob("*.json")
-    }
+    for name in shadow:
+        days |= {
+            date.fromisoformat(p.stem) for p in (data_dir / "shadow" / "days" / name).glob("*.json")
+        }
     common = []
     for day in sorted(days, reverse=True):
         actual = _actuals(data_dir, day)
-        paths = [_forecast_path(data_dir, m, day, replay=False) for m in models]
+        paths = [_forecast_path(data_dir, m, day, replay=False) for m in required]
         if actual is None or None in paths:
             continue
         try:
-            errors = [_day_errors(data_dir, path, actual) for path in paths]
+            errors = {m: _day_errors(data_dir, path, actual) for m, path in zip(required, paths)}
         except SourceError:
             continue  # actuals incomplete or a grid mismatch: not comparable
-        common.append((day, errors))
+        common.append((day, errors, actual))
         if len(common) == 28:
             break
+
+    def errors_of(model, day, known, actual):
+        if model in known:
+            return known[model]
+        path = _forecast_path(data_dir, model, day, replay=False)
+        try:
+            return _day_errors(data_dir, path, actual) if path else None
+        except SourceError:
+            return None
+
     rows = []
-    for index, model in enumerate(models):
+    for model in [current, *shadow, *baselines]:
         if model == current:
             role = "published"
-        elif model == CANDIDATE["name"]:
+        elif model in shadow:
             role = "shadow"
         else:
             role = "fallback" if model == PRODUCTION_MODEL else "reference"
         row = {"model": model, "role": role}
         for window in (7, 28):
-            chosen = [errors[index] for _, errors in common[:window]]
-            row[f"mae_{window}"] = _point_metrics(_errors(chosen))["mae"] if chosen else None
+            chosen = [
+                errors_of(model, day, known, actual) for day, known, actual in common[:window]
+            ]
+            complete = bool(chosen) and None not in chosen
+            row[f"mae_{window}"] = _point_metrics(_errors(chosen))["mae"] if complete else None
         rows.append(row)
     return {
         "champion": current,
-        "candidate": CANDIDATE["name"],
+        "candidates": shadow,
         "fallback": PRODUCTION_MODEL,
-        "catalog": MODEL_INFO | {CANDIDATE["name"]: CANDIDATE_INFO},
+        "catalog": MODEL_INFO | {CANDIDATE["name"]: CANDIDATE_INFO} | CHALLENGER_INFO,
         "policy": POLICY,
         "rows": rows,
     }

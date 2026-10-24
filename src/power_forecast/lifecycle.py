@@ -44,6 +44,59 @@ CANDIDATE_INFO = {
     "calendar features, retrained every week on the last 180 days.",
 }
 REFIT_DAYS = 7
+# Comparison models (challengers.py): forecast daily, never published or promoted.
+# Settings of the M8 comparison (configs/comparison.json, configs/backtest_models.json).
+CHALLENGERS = {
+    "lightgbm-wl-180-v1": {
+        "kind": "lightgbm",
+        "params": {
+            "objective": "l1",
+            "n_estimators": 400,
+            "learning_rate": 0.05,
+            "num_leaves": 31,
+            "min_child_samples": 50,
+            "subsample": 0.8,
+            "subsample_freq": 1,
+            "colsample_bytree": 0.8,
+        },
+        "covariates": ["weather", "load"],
+        "training_window": 180,
+        "seed": 0,
+    },
+    "lear-wl-v1": {
+        "kind": "lear",
+        "covariates": ["weather", "load"],
+        "training_windows": [56, 84, 182],
+    },
+    "chronos2-zs-v1": {
+        "kind": "chronos",
+        "covariates": ["weather", "load"],
+        "context_days": 84,
+        "quantiles": [0.1, 0.5, 0.9],
+    },
+}
+# A learned champion that fails at publication falls back along this chain before
+# the seasonal baseline.
+FALLBACKS = {"chronos2-zs-v1": ["lear-wl-v1"]}
+CHALLENGER_INFO = {
+    "lightgbm-wl-180-v1": {
+        "name": "LightGBM",
+        "description": "Gradient-boosted trees on recent prices, calendar features, the "
+        "weather forecast and the load forecast, retrained every week on the last 180 days.",
+    },
+    "lear-wl-v1": {
+        "name": "LEAR",
+        "description": "One regularised linear regression per quarter-hour on the previous "
+        "days' prices, the load and weather forecasts, averaged over three training windows "
+        "and retrained every week.",
+    },
+    "chronos2-zs-v1": {
+        "name": "Chronos-2",
+        "description": "A pretrained time-series foundation model, used without retraining: "
+        "it reads the last 84 days of prices with their load and weather forecasts, and the "
+        "forecasts for the delivery day.",
+    },
+}
 
 
 def _digest(value: dict) -> str:

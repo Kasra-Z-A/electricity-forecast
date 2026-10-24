@@ -42,6 +42,7 @@ directory for each attempt, and `operations/JOB.json` for its latest outcome.
 | 10:30–10:55, every five minutes | publish | Publish once; later attempts reuse the official pointer |
 | 13:00, 14:00, 16:00, 20:00 | settle | Retrieve actual auction prices and score; retry unscored days and refresh three recent days |
 | 10:46, 11:05, 20:15 | watchdog | Report missing/late publication, missing artifacts, unsuccessful collection and pending scores |
+| 11:10 | challengers | Forecast the delivery day with the challengers in shadow; replay any of the previous 28 days without one |
 
 Collection continues past individual day failures and records their dates. Each
 collection also fetches the ENTSO-E day-ahead load forecast (A65) and wind/solar
@@ -71,6 +72,19 @@ official run. Shadow artifacts are written under `shadow/`, never `forecasts/`, 
 cannot reach the public dashboard or the official pointer, and their errors never
 change the publish status. Settle scores them after the official days.
 
+The `challengers` job (`challengers.py`) forecasts the delivery day with LightGBM,
+LEAR and Chronos-2 from price versions, the weather run and the load forecast
+retrieved before the cutoff, and writes them under `shadow/` like the ridge shadow.
+Chronos-2 runs once per job for all pending days, in a separate process, and also
+records its P10 and P90. A challenger that is champion is skipped: publish makes its
+forecast. A day whose weather or load forecast arrived after the cutoff gets no live
+forecast. Any of the previous 28 days without one is replayed from the versions
+retrieved before its cutoff, with training labels and covariates marked
+`reconstructed`. Failures are reported per model and day; the job is partial only
+when a live forecast fails. The dashboard shows every candidate's errors on the same
+days as the published model and the baselines; a window with a missing day shows no
+value.
+
 `power-forecast shadow-replay START END` recreates candidate forecasts for past days
 from the versions retrieved before each cutoff; run it on the production archive,
 which collected those versions live. Its fits use later-downloaded training labels and are
@@ -79,20 +93,26 @@ marked `reconstructed_labels`.
 ### Champion, automatic promotion and rollback
 
 `models/champion.json` names the published model; without it the champion is
-`seasonal-daily-v1`. When the candidate is champion, publish writes its forecast as
+`seasonal-daily-v1`. When a candidate is champion, publish writes its forecast as
 the official one; if that fails for any reason, the seasonal baseline is published
-instead and the pointer records `fallback_from`.
+instead and the pointer records `fallback_from`. A Chronos-2 champion falls back to
+LEAR first, then to the seasonal baseline.
 
-Every settle run evaluates the candidate (`promotion.py`) on all days it has a
-scorable shadow or replay forecast, against the champion and `seasonal-weekly-v1` on
-the same days and the latest actuals. Where those baselines were not official, the
-gate replays what they would have published from the versions retrieved before each
-cutoff. The candidate is promoted automatically, effective from the next publication,
-when all checks pass: at least 28 common days, at least 7 of them live shadow days,
-MAE at least 2% below the champion, below the weekly baseline, the week-block 95%
-interval of the daily MAE difference entirely below zero, and RMSE no more than 5%
-above the champion. Each evaluation is kept under `models/evaluations/`; promotions
-and rollbacks are appended to `models/events.jsonl`. Gate errors never fail settle.
+Every settle run evaluates each candidate (`promotion.py`): the ridge candidate and
+the challengers, except the champion and rolled-back models. Each is compared on all
+days it has a scorable shadow or replay forecast, against the champion and
+`seasonal-weekly-v1` on the same days and the latest actuals. Where those baselines
+were not official, the gate replays what they would have published from the versions
+retrieved before each cutoff. A candidate passes when all checks hold: at least 28
+common days, at least 7 of them live shadow days, MAE at least 2% below the
+champion, below the weekly baseline, the week-block interval of the daily MAE
+difference entirely below zero, and RMSE no more than 5% above the champion. The
+interval level is Bonferroni-corrected for the number of candidates tested, 1 − 0.05
+/ k (98.75% for four), so testing several does not raise the chance of promoting one
+by luck. Of the candidates that pass, the one with the largest MAE skill over the
+champion is promoted automatically, effective from the next publication. Each
+evaluation is kept under `models/evaluations/`; promotions and rollbacks are
+appended to `models/events.jsonl`. Gate errors never fail settle.
 
 `power-forecast evaluate` runs the gate without promoting. The one-off commands
 `rollback`, `evaluate` and `shadow-replay` run on the production state through the
@@ -191,8 +211,11 @@ Infrastructure comes from the `power-pipeline` stack in `aws-infra`; this reposi
 holds the handler (`src/power_forecast/cloud.py`), its image (`Dockerfile.lambda`) and
 `deploy/deploy-lambda.sh`.
 
-- Function: `power-pipeline`, 1024 MB, 15-minute timeout, one job per invocation
-  (`{"job": "collect"}` and so on) and no automatic retries.
+- Functions: `power-pipeline` (1024 MB) runs collect, settle, watchdog and the
+  dashboard refresh; `power-pipeline-models` (3008 MB) runs publish and
+  challengers, which run the models. Both run the same image with a 15-minute
+  timeout, one job per invocation (`{"job": "collect"}` and so on) and no automatic
+  retries, and share the state lock.
 - Schedules: the EventBridge Scheduler group `power-pipeline` runs the times in the
   table above in Europe/Vienna, so daylight-saving changes move with the market day,
   plus the five-minute `dashboard` refresh.
@@ -210,7 +233,11 @@ holds the handler (`src/power_forecast/cloud.py`), its image (`Dockerfile.lambda
   assets for 300 seconds. Daily jobs do not issue CloudFront invalidations.
 - Scheduler state: each run lists the schedule group and records whether every
   schedule is enabled; the dashboard shows it.
-- Logs: CloudWatch Logs `/aws/lambda/power-pipeline`, kept for 30 days.
+- Logs: CloudWatch Logs `/aws/lambda/power-pipeline` and
+  `/aws/lambda/power-pipeline-models`, kept for 30 days.
+- Chronos-2 weights: downloaded at the pinned revision when the image is built,
+  checked against their SHA-256 and loaded from `CHRONOS_MODEL_DIR`; CI loads them
+  once in every image it builds.
 
 The image is built once by GitHub Actions in `Kasra-Z-A/electricity-forecast` and
 pushed to the ECR repository `power-pipeline`, tagged by commit. To deploy, pass the

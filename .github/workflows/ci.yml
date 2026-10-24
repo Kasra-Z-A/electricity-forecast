@@ -24,11 +24,11 @@ jobs:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v6
       - run: uv python install 3.12
-      # Tests need the research group; the image never installs it.
-      - run: uv sync --locked --python 3.12 --group research
+      # Tests need the research and foundation groups, which the image also installs.
+      - run: uv sync --locked --python 3.12 --group research --group foundation
       - run: uv run ruff check src tests experiments
       - run: uv run ruff format --check src tests experiments
-      - run: uv run --group research pytest -q
+      - run: uv run --group research --group foundation pytest -q
 
   # The pipeline runs as one AWS Lambda function (power_forecast.cloud). The
   # image is invoked once through the runtime emulator in the base image, which
@@ -61,6 +61,12 @@ jobs:
           docker rm -f lambda > /dev/null
           echo "$response"
           echo "$response" | grep -q "Unknown job"
+
+      # Loads the pinned Chronos-2 weights with the image's PyTorch, as a run would.
+      - name: Load Chronos-2 in the image
+        run: |
+          docker run --rm --entrypoint python power-pipeline:test -c \
+            "from pathlib import Path; from power_forecast import chronos; chronos.load_pipeline(Path('/tmp')); print('Chronos-2 loaded')"
 
       - if: env.READY == 'true'
         env:

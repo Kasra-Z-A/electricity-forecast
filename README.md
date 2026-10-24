@@ -4,7 +4,7 @@ Every morning this system forecasts the next day's Austrian day-ahead electricit
 prices before the auction, keeps exactly what it knew when it did so, and scores
 each forecast once the auction result is published. It is built as a production
 ML system: point-in-time inputs, rolling backtests on frozen windows, scheduled
-batch jobs, a shadow candidate with an automatic promotion gate, and rollback.
+batch jobs, shadow candidates with an automatic promotion gate, and rollback.
 
 Live dashboard: https://power.kasra.page
 
@@ -12,11 +12,12 @@ Live dashboard: https://power.kasra.page
   separate research track.
 - **Timing:** inputs freeze at 10:30 Europe/Vienna on the day before delivery;
   publication is due by 10:45.
-- **Production model:** the prior-day seasonal baseline. A ridge model runs in
-  shadow beside it and is promoted automatically once it passes the gate.
-- **Infrastructure:** batch jobs in one AWS Lambda function started by EventBridge
-  Scheduler, state as a versioned S3 snapshot, an image built in CI and deployed by
-  digest, a static dashboard on S3 + CloudFront.
+- **Production model:** the prior-day seasonal baseline. Ridge, LightGBM, LEAR and
+  Chronos-2 run in shadow beside it; the best one that passes the gate is promoted
+  automatically.
+- **Infrastructure:** batch jobs in two AWS Lambda functions from one image,
+  started by EventBridge Scheduler, state as a versioned S3 snapshot, an image
+  built in CI and deployed by digest, a static dashboard on S3 + CloudFront.
 
 How it is built and why: [docs/DESIGN.md](docs/DESIGN.md). Running and recovering
 it: [docs/OPERATIONS.md](docs/OPERATIONS.md). Source checks:
@@ -30,8 +31,8 @@ it: [docs/OPERATIONS.md](docs/OPERATIONS.md). Source checks:
 | Scheduled daily operation and dashboard | Running: 28 consecutive on-time scheduled forecasts by 2026-10-14 ([report](reports/m2_observation_2026-10-14.json)) |
 | Frozen splits, backtests of baselines, ridge and LightGBM | Done |
 | Covariate audit, ablations, calibrated P10/P50/P90 | Backtested; not in production |
-| Shadow candidate, automatic promotion, rollback | Running: shadow, gate and dashboard comparison are live |
-| Comparison of LEAR, LightGBM, Chronos-2 and an ensemble on weather and load forecasts | Done; not in production |
+| Shadow candidates, automatic promotion, rollback | Running: shadow, gate and dashboard comparison are live |
+| Comparison of LEAR, LightGBM, Chronos-2 and an ensemble on weather and load forecasts | Done; LEAR, LightGBM and Chronos-2 run in shadow as candidates |
 
 ## Results
 

@@ -187,17 +187,35 @@ losses, since quarter-hours within a day are not independent. A holdout is consu
 once; after that, only fresh forward windows count.
 
 **Promotion gate** (`promotion.py`; engineering defaults, not scientific constants).
-The candidate runs in shadow beside the official forecast and is promoted
-automatically, from the next publication, when all of these hold on the same days:
+Several candidates run in shadow beside the official forecast: the ridge model and
+the challengers below. Each is evaluated against the champion, and a candidate
+passes when all of these hold on the same days:
 
 - at least 28 common days, at least 7 of them live shadow days;
 - MAE at least 2% below the champion and below the weekly baseline;
-- the 95% week-block interval of the daily MAE difference entirely below zero;
+- the week-block interval of the daily MAE difference entirely below zero, at the
+  Bonferroni-corrected level 1 − 0.05 / k for k candidates tested;
 - RMSE no more than 5% above the champion.
+
+Of the candidates that pass, the one with the largest MAE skill over the champion
+is promoted automatically from the next publication. Testing several candidates
+against the same gate would otherwise raise the chance that one passes by luck; the
+corrected level keeps that chance at 5% or less.
 
 If a promoted model fails at publication, the seasonal baseline is published and
 the pointer records the fallback. Rollback restores the previous champion and
 blocks the demoted version; only a new version can be promoted again.
+
+**Challengers** (`challengers.py`). LightGBM, LEAR and Chronos-2, with the M8
+settings, forecast every day in shadow after the publication window from the inputs
+available at the cutoff. Once one is champion, publish runs it at the cutoff
+instead; a Chronos-2 champion that fails falls back to LEAR, which needs no
+pretrained weights, before the seasonal baseline. Chronos-2 runs zero-shot from
+weights pinned by revision and checksum and built into the image. Each refits weekly
+on a fixed Monday anchor; the fit is rebuilt from the archive on every run, so no
+model file is stored. Their training days use archived weather and load retrieved
+after the fact, as in the M8 comparison; the first 28 days are vintage replays and
+are marked as reconstructed.
 
 Pull-request CI uses small deterministic fixtures. Network tests are opt-in, and
 model evaluation runs on the archive, not on live APIs in CI.

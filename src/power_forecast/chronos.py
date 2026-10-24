@@ -9,6 +9,7 @@ regular series. P50 is the point forecast; P10 and P90 are reported alongside.
 """
 
 import json
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -74,7 +75,9 @@ def frames(archive: dict, load: dict, weather: dict, day: date):
 
 
 def model_dir(data_dir: Path) -> Path:
-    return data_dir / "models" / f"chronos-2-{REVISION}"
+    """The pinned weights: `CHRONOS_MODEL_DIR` (set in the Lambda image) or the archive."""
+    configured = os.environ.get("CHRONOS_MODEL_DIR")
+    return Path(configured) if configured else data_dir / "models" / f"chronos-2-{REVISION}"
 
 
 def load_pipeline(data_dir: Path):
@@ -107,8 +110,11 @@ def forecast_days(pipeline, archive: dict, load: dict, weather: dict, days: list
     return forecasts
 
 
-def forecast_isolated(data_dir: Path, days: list[date]) -> dict:
+def forecast_isolated(data_dir: Path, days: list[date], point_in_time: bool = False) -> dict:
     """forecast_days in a fresh interpreter, returning the same mapping.
+
+    With `point_in_time`, each day's context uses only the price versions retrieved
+    before that day's cutoff, as a live forecast would.
 
     PyTorch and LightGBM each bring their own OpenMP runtime on macOS; with both
     active in one process their worker threads deadlock. The child never imports
@@ -119,10 +125,19 @@ def forecast_isolated(data_dir: Path, days: list[date]) -> dict:
 
     with tempfile.TemporaryDirectory() as directory:
         output = Path(directory) / "forecasts.json"
+        # The child needs the parent's import path (Lambda's task root is not on the
+        # default one), a writable cache and no network: the weights are local.
+        environment = os.environ | {
+            "PYTHONPATH": os.pathsep.join(path for path in sys.path if path),
+            "HF_HOME": str(Path(directory) / "huggingface"),
+            "HF_HUB_OFFLINE": "1",
+        }
         subprocess.run(
             [sys.executable, "-m", "power_forecast.chronos", str(data_dir), str(output)]
+            + (["--point-in-time"] if point_in_time else [])
             + [str(day) for day in days],
             check=True,
+            env=environment,
         )
         stored = json.loads(output.read_text())
     return {date.fromisoformat(day): np.array(values) for day, values in stored.items()}
@@ -134,14 +149,19 @@ def _main(arguments: list[str]) -> None:
     from power_forecast.ingestion.weather import load_weather
 
     data_dir, output = Path(arguments[0]), Path(arguments[1])
-    days = [date.fromisoformat(value) for value in arguments[2:]]
-    forecasts = forecast_days(
-        load_pipeline(data_dir),
-        load_archive(data_dir),
-        load_load(data_dir),
-        load_weather(data_dir),
-        days,
-    )
+    point_in_time = "--point-in-time" in arguments[2:]
+    days = [date.fromisoformat(value) for value in arguments[2:] if value != "--point-in-time"]
+    pipeline, load, weather = load_pipeline(data_dir), load_load(data_dir), load_weather(data_dir)
+    if point_in_time:
+        from power_forecast.lifecycle import prices_at
+        from power_forecast.timegrid import forecast_cutoff
+
+        forecasts = {}
+        for day in days:
+            archive = prices_at(data_dir, forecast_cutoff(day))
+            forecasts |= forecast_days(pipeline, archive, load, weather, [day])
+    else:
+        forecasts = forecast_days(pipeline, load_archive(data_dir), load, weather, days)
     output.write_text(json.dumps({str(day): value.tolist() for day, value in forecasts.items()}))
 
 

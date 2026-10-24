@@ -72,12 +72,17 @@ def daily_mae(day: dict) -> float:
 
 
 def paired_comparison(
-    candidate: list[dict], reference: list[dict], replicates: int = 2000, seed: int = 0
+    candidate: list[dict],
+    reference: list[dict],
+    replicates: int = 2000,
+    seed: int = 0,
+    level: float = 0.95,
 ) -> dict:
     """Candidate minus reference daily MAE on common days, with a week-block 95% interval.
 
     Negative differences favour the candidate. Skill is 1 - candidate/reference MAE,
-    undefined when the reference MAE is zero.
+    undefined when the reference MAE is zero. With another `level`, the interval at
+    that level is added as `difference_interval`.
     """
     ref = {day["day"]: day for day in reference if day["intervals"]}
     pairs = [(day, ref[day["day"]]) for day in candidate if day["intervals"] and day["day"] in ref]
@@ -100,7 +105,17 @@ def paired_comparison(
         "mae_skill": None if reference_mae == 0 else 1 - candidate_mae / reference_mae,
         "daily_mae_difference": mean(d for block in blocks for d in block),
         "difference_95": [quantile(draws, 0.025), quantile(draws, 0.975)],
-    }
+    } | (
+        {}
+        if level == 0.95
+        else {
+            "interval_level": level,
+            "difference_interval": [
+                quantile(draws, (1 - level) / 2),
+                quantile(draws, (1 + level) / 2),
+            ],
+        }
+    )
 
 
 def pinball(actual: float, predicted: float, q: float) -> float:

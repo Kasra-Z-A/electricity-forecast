@@ -14,8 +14,8 @@ from power_forecast.history import TRANSITION, atomic_json, ingest_day, ingest_w
 from power_forecast.ingestion.entsoe import SourceError
 from power_forecast.ingestion.load import ingest_load_days
 from power_forecast.ingestion.observations import observe, observe_weather
-from power_forecast.lifecycle import CANDIDATE, candidate_forecast, shadow_forecast
-from power_forecast.promotion import champion, run_gate
+from power_forecast.lifecycle import CANDIDATE, FALLBACKS, candidate_forecast, shadow_forecast
+from power_forecast.promotion import candidates, champion, run_gate
 from power_forecast.scoring import score
 from power_forecast.timegrid import VIENNA, forecast_cutoff, results_expected
 
@@ -66,12 +66,16 @@ def publish(day: date, data_dir: Path) -> dict:
     if not cutoff <= now <= cutoff + timedelta(minutes=30):
         raise SourceError("Publication is allowed only from 10:30 through 11:00 Vienna on D-1.")
     model, fallback = champion(data_dir)["model"], None
-    if model == CANDIDATE["name"]:
-        try:
-            artifact = candidate_forecast(day, data_dir, now, "official")
-        except Exception as error:  # noqa: BLE001 - any model failure falls back
-            # The seasonal baseline needs no fitted model, so it is the safe fallback.
-            fallback = {"model": model, "error_type": type(error).__name__}
+    if model in candidates():
+        artifact = None
+        for attempt in [model, *FALLBACKS.get(model, [])]:
+            try:
+                artifact = champion_forecast(attempt, day, data_dir, now)
+                break
+            except Exception as error:  # noqa: BLE001 - any model failure falls back
+                fallback = fallback or {"model": model, "error_type": type(error).__name__}
+        if artifact is None:
+            # The seasonal baseline needs no fitted model, so it is the last fallback.
             artifact = forecast(day, data_dir, now=now)
     else:
         artifact = forecast(day, data_dir, now=now)
@@ -293,7 +297,7 @@ def health(day: date, data_dir: Path) -> dict:
 
 
 def run_job(job: str, data_dir: Path, day: date | None = None) -> dict:
-    if job not in {"collect", "publish", "settle", "watchdog", "dashboard"}:
+    if job not in {"collect", "publish", "settle", "watchdog", "dashboard", "challengers"}:
         raise ValueError("Unknown batch job.")
     day = day or (utcnow().astimezone(VIENNA).date() + timedelta(days=1))
     with writer_lock(data_dir):
@@ -313,6 +317,7 @@ def run_job(job: str, data_dir: Path, day: date | None = None) -> dict:
                 "settle": settle,
                 "watchdog": health,
                 "dashboard": export_dashboard,
+                "challengers": comparison_forecasts,
             }[job]
             result = action(day, data_dir)
             status = result.get("status", "success")
@@ -334,6 +339,21 @@ def run_job(job: str, data_dir: Path, day: date | None = None) -> dict:
             atomic_json(path, attempt)
             atomic_json(data_dir / "operations" / f"{job}.json", attempt)
         return attempt
+
+
+def comparison_forecasts(day: date, data_dir: Path) -> dict:
+    from power_forecast.challengers import run_challengers
+
+    return run_challengers(day, data_dir, utcnow(), champion(data_dir)["model"])
+
+
+def champion_forecast(model: str, day: date, data_dir: Path, now) -> Path:
+    """The official forecast of a learned champion."""
+    if model == CANDIDATE["name"]:
+        return candidate_forecast(day, data_dir, now, "official")
+    from power_forecast.challengers import official_forecast
+
+    return official_forecast(model, day, data_dir, now)
 
 
 def export_dashboard(day: date, data_dir: Path) -> dict:

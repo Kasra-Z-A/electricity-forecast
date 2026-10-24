@@ -1,6 +1,7 @@
-"""Learned models for research backtests; needs the `research` dependency group.
+"""Learned models for backtests and comparison forecasts; needs the `research` group.
 
-Production never imports this module, so its packages stay out of the image.
+The published forecast never imports this module; the comparison job does, so the
+Lambda image installs the group.
 Every transformation (one-hot encoding, scaling) is fitted on training rows only.
 """
 

@@ -29,7 +29,7 @@ import tarfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-JOBS = ("collect", "publish", "settle", "watchdog", "dashboard", "command")
+JOBS = ("collect", "publish", "settle", "watchdog", "challengers", "dashboard", "command")
 COMMANDS = ("evaluate", "rollback", "shadow-replay")
 # Lambda stops a run after at most 15 minutes, so an older lock has no live owner.
 STALE_LOCK = timedelta(minutes=16)
