@@ -15,6 +15,15 @@ esac
 region="eu-central-1"
 account="$(aws sts get-caller-identity --query Account --output text)"
 image="$account.dkr.ecr.$region.amazonaws.com/power-pipeline@$digest"
+# The registry's lifecycle policy keeps the newest deployed-* images, so neither
+# age nor later CI pushes can expire the image the functions run.
+manifest="$(aws ecr batch-get-image --region "$region" --repository-name power-pipeline \
+  --image-ids imageDigest="$digest" --query 'images[0].imageManifest' --output text)"
+media_type="$(aws ecr batch-get-image --region "$region" --repository-name power-pipeline \
+  --image-ids imageDigest="$digest" --query 'images[0].imageManifestMediaType' --output text)"
+aws ecr put-image --region "$region" --repository-name power-pipeline \
+  --image-tag "deployed-$(date -u +%Y%m%dT%H%M%SZ)" --image-manifest "$manifest" \
+  --image-manifest-media-type "$media_type" --query image.imageId.imageTag --output text
 # Both functions run the same image: power-pipeline for the light jobs and
 # power-pipeline-models for publish and challengers.
 for function in power-pipeline power-pipeline-models; do

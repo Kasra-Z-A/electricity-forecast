@@ -262,7 +262,9 @@ aws logs tail /aws/lambda/power-pipeline --since 1d
 ```
 
 For a code rollback, deploy an earlier digest; `aws ecr describe-images
---repository-name power-pipeline` lists them, and the lifecycle policy keeps three.
+--repository-name power-pipeline` lists them. The deploy script tags each image it
+deploys `deployed-<time>`, and the lifecycle policy keeps the three most recent of
+those, so neither age nor new CI pushes can expire the running image.
 To restore data, copy an earlier version of `live/state.tar.gz` over the current one
 while no run holds the lock. Do not restore old data over newer published forecasts
 as part of a code rollback. Automatic code rollback is not configured.
